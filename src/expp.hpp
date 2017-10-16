@@ -53,11 +53,12 @@ ERL_NIF_TERM wrapper(ErlNifEnv* env, int, const ERL_NIF_TERM argv[])
 template<typename Fn, Fn fn>
 ErlNifFunc constexpr def_impl(const char* name)
 {
-    ErlNifFunc entry;
-    entry.name = name;
-    entry.arity = function_traits<Fn>::nargs;
-    entry.fptr = wrapper<Fn, fn>;
-    entry.flags = 0;
+    ErlNifFunc entry = {
+        name,
+        function_traits<Fn>::nargs,
+        wrapper<Fn, fn>,
+        0
+    };
     return entry;
 }
 

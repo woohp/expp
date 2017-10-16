@@ -46,4 +46,4 @@ ELIXIR_MODULE(Foo,
     def(times3, "times3"),
     def(times4, "times4"),
     def(catcat, "catcat")
-);
+)
