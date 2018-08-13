@@ -2,19 +2,22 @@
 #include <string>
 
 
-template<typename T>
+template <typename T>
 struct type_cast;
 
 
 struct atom
 {
-    atom(const char* s): name(s)
+    explicit atom(const char* s)
+        : name(s)
     {}
 
-    atom(const std::string& s): name(s)
+    explicit atom(const std::string& s)
+        : name(s)
     {}
 
-    atom(atom&& other): name(move(other.name))
+    atom(atom&& other)
+        : name(move(other.name))
     {}
 
     bool operator==(const atom& other) const
