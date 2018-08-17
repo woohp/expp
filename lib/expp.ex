@@ -27,4 +27,12 @@ defmodule Foo do
   def catcat(_s) do
     "NIF library not loaded"
   end
+
+  def boo(_s) do
+    "NIF library not loaded"
+  end
+
+  def bar(_s) do
+    "NIF library not loaded"
+  end
 end

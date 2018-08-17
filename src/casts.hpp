@@ -9,7 +9,9 @@
 #define HAS_VARIANT
 #endif
 #include "atom.hpp"
+#include "ext_types.hpp"
 #include <erl_nif.h>
+#include <iostream>
 
 
 template <typename T>
@@ -135,7 +137,8 @@ struct type_cast<std::string>
     static std::string load(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         ErlNifBinary binary_info;
-        enif_inspect_binary(env, term, &binary_info);
+        if (!enif_inspect_binary(env, term, &binary_info))
+            throw std::invalid_argument("invalid string");
         return std::string(reinterpret_cast<const char*>(binary_info.data), binary_info.size);
     }
 
@@ -155,7 +158,8 @@ struct type_cast<binary>
     static binary load(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         binary b;
-        enif_inspect_binary(env, term, &b);
+        if (!enif_inspect_binary(env, term, &b))
+            throw std::invalid_argument("invalid binary");
         return b;
     }
 
@@ -249,16 +253,34 @@ public:
 
 
 #ifdef HAS_VARIANT
+
 template <typename... Args>
 struct type_cast<std::variant<Args...>>
 {
 private:
     typedef std::variant<Args...> variant_type;
 
+    template <int I, typename T, typename... Rest>
+    static variant_type load_impl(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        try
+        {
+            return variant_type(std::in_place_index<I>, type_cast<T>::load(env, term));
+        }
+        catch (const std::invalid_argument&)
+        {
+            if constexpr (sizeof...(Rest) == 0)
+                throw std::invalid_argument("invalid argument");
+            else
+                return type_cast<variant_type>::load_impl<I + 1, Rest...>(env, term);
+        }
+    }
+
 public:
-    // static variant_type load(ErlNifEnv* env, ERL_NIF_TERM term)
-    // {
-    // }
+    static variant_type load(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return type_cast<std::variant<Args...>>::load_impl<0, Args...>(env, term);
+    }
 
     static ERL_NIF_TERM handle(ErlNifEnv* env, const variant_type& item) noexcept
     {
@@ -269,5 +291,24 @@ public:
             },
             item);
     }
+};
+
+
+template <typename OkType, typename ErrorType>
+struct type_cast<erl_result<OkType, ErrorType>>
+{
+private:
+    typedef erl_result<OkType, ErrorType> erl_result_type;
+    typedef std::tuple<atom, OkType> ok_tuple_type;
+    typedef std::tuple<atom, ErrorType> error_tuple_type;
+
+public:
+    static ERL_NIF_TERM handle(ErlNifEnv* env, const erl_result_type& result) noexcept
+    {
+        if (result.index() == 0)
+            return type_cast<ok_tuple_type>::handle(env, ok_tuple_type(atom("ok"), std::get<0>(result)));
+        else
+            return type_cast<error_tuple_type>::handle(env, error_tuple_type(atom("error"), std::get<1>(result)));
+    };
 };
 #endif

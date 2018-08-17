@@ -1,30 +1,8 @@
 #pragma once
 #include "casts.hpp"
+#include "ext_types.hpp"
 #include <erl_nif.h>
 #include <utility>
-
-
-struct erl_error_base : std::exception
-{
-    virtual ERL_NIF_TERM get_term(ErlNifEnv* env) const = 0;
-};
-
-
-template <typename T>
-struct erl_error : erl_error_base
-{
-    T error_value;
-
-    explicit erl_error(const T& error_value)
-        : error_value(error_value)
-    {}
-
-    ERL_NIF_TERM get_term(ErlNifEnv* env) const
-    {
-        using error_type = std::tuple<atom, std::decay_t<T>>;
-        return type_cast<error_type>::handle(env, error_type(atom("error"), error_value));
-    }
-};
 
 
 template <typename T>
