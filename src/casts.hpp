@@ -18,7 +18,7 @@ template <typename T>
 struct type_cast;
 
 
-class binary : ErlNifBinary
+class binary : public ErlNifBinary
 {
 private:
     bool needs_release = false;
