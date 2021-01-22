@@ -190,7 +190,7 @@ struct type_cast<atom>
 
     static ERL_NIF_TERM handle(ErlNifEnv* env, const atom& a) noexcept
     {
-        return enif_make_atom(env, a.name.c_str());
+        return enif_make_atom_len(env, a.name.c_str(), a.name.length());
     }
 };
 

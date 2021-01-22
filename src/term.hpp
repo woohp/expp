@@ -38,3 +38,17 @@ struct term
     ErlNifEnv* env;
     ERL_NIF_TERM term;
 };
+
+
+template <>
+struct type_cast<term>
+{
+    static term load(ErlNifEnv* env, ERL_NIF_TERM _term)
+    {
+
+    }
+
+    static ERL_NIF_TERM handle(ErlNifEnv* env, term _term)
+    {
+    }
+};
