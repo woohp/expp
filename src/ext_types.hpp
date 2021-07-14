@@ -3,6 +3,7 @@
 #include <erl_nif.h>
 #include <stdexcept>
 #include <tuple>
+#include <variant>
 
 
 struct erl_error_base : std::exception
@@ -18,17 +19,15 @@ struct erl_error : erl_error_base
 
     explicit erl_error(const T& error_value)
         : error_value(error_value)
-    {}
+    { }
 
     ERL_NIF_TERM get_term(ErlNifEnv* env) const
     {
         using error_type = std::tuple<atom, std::decay_t<T>>;
-        return type_cast<error_type>::handle(env, error_type(atom("error"), error_value));
+        return type_cast<error_type>::handle(env, error_type("error"_atom, error_value));
     }
 };
 
-
-#ifdef HAS_VARIANT
 
 template <typename OkType>
 struct Ok
@@ -37,7 +36,7 @@ struct Ok
 
     explicit Ok(OkType value)
         : value(std::move(value))
-    {}
+    { }
 };
 
 
@@ -48,7 +47,7 @@ struct Error
 
     explicit Error(ErrorType value)
         : value(std::move(value))
-    {}
+    { }
 };
 
 
@@ -57,12 +56,14 @@ struct erl_result : std::variant<OkType, ErrorType>
 {
     erl_result(Ok<OkType> ok_value)
         : std::variant<OkType, ErrorType>(std::in_place_index<0>, std::move(ok_value.value))
-    {}
+    { }
 
     erl_result(Error<ErrorType> error_value)
-        : std::variant<ErrorType, ErrorType>(std::in_place_index<1>, std::move(error_value.value))
-    {}
+        : std::variant<OkType, ErrorType>(std::in_place_index<1>, std::move(error_value.value))
+    { }
+
+    bool ok() const
+    {
+        return this->index() == 0;
+    }
 };
-
-
-#endif

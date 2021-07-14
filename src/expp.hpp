@@ -22,7 +22,7 @@ struct function_traits<R (*)(Args...)>
 
     static R apply(func_type fn, ErlNifEnv* env, const ERL_NIF_TERM argv[])
     {
-        return apply_impl(fn, env, argv, std::make_index_sequence<nargs>{});
+        return apply_impl(fn, env, argv, std::make_index_sequence<nargs> {});
     }
 };
 

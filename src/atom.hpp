@@ -8,18 +8,20 @@ struct type_cast;
 
 struct atom
 {
-    explicit atom(const char* s)
-        : name(s)
-    {}
+private:
+    constexpr atom(const char* name, std::size_t len)
+        : name(name, len)
+    { }
 
-    explicit atom(const std::string& s)
-        : name(s)
-    {}
+    explicit atom(std::string name)
+        : name(std::move(name))
+    { }
 
-    atom(atom&& other)
-        : name(move(other.name))
-    {}
+    friend atom operator"" _atom(const char* s, std::size_t len);
 
+    friend struct type_cast<atom>;
+
+public:
     bool operator==(const atom& other) const
     {
         return this->name == other.name;
@@ -34,7 +36,7 @@ struct atom
 };
 
 
-atom operator"" _a(const char* s)
+atom operator"" _atom(const char* s, std::size_t len)
 {
-    return atom(s);
+    return atom { s, len };
 }

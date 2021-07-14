@@ -1,18 +1,14 @@
 #pragma once
+#include "atom.hpp"
+#include "ext_types.hpp"
 #include <algorithm>
 #include <cstdint>
+#include <erl_nif.h>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <tuple>
-#if __cplusplus >= 201700
 #include <variant>
-#define HAS_VARIANT
-#endif
-#include "atom.hpp"
-#include "ext_types.hpp"
-#include <erl_nif.h>
-#include <iostream>
-
 
 template <typename T>
 struct type_cast;
@@ -25,7 +21,7 @@ private:
 
     friend struct type_cast<binary>;
 
-    binary() {}
+    binary() { }
 
 public:
     explicit binary(unsigned size)
@@ -185,12 +181,12 @@ struct type_cast<atom>
         if (enif_get_atom(env, term, &s[0], len + 1, ERL_NIF_LATIN1) != int(len + 1))
             throw std::invalid_argument("invalid atom");
 
-        return atom(s);
+        return atom { s };
     }
 
     static ERL_NIF_TERM handle(ErlNifEnv* env, const atom& a) noexcept
     {
-        return enif_make_atom_len(env, a.name.c_str(), a.name.length());
+        return enif_make_atom_len(env, a.name.data(), a.name.length());
     }
 };
 
@@ -232,7 +228,7 @@ private:
     static ERL_NIF_TERM handle_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
     {
         return enif_make_tuple(
-            env, std::tuple_size<tuple_type>::value, type_cast<std::decay_t<Args>>::handle(env, std::get<I>(items))...);
+            env, std::tuple_size_v<tuple_type>, type_cast<std::decay_t<Args>>::handle(env, std::get<I>(items))...);
     }
 
 public:
@@ -242,17 +238,15 @@ public:
         int arity;
         if (!enif_get_tuple(env, term, &arity, &tup_array))
             throw std::invalid_argument("invalid tuple");
-        return load_impl(env, tup_array, std::index_sequence_for<Args...>{});
+        return load_impl(env, tup_array, std::index_sequence_for<Args...> {});
     }
 
     static ERL_NIF_TERM handle(ErlNifEnv* env, const tuple_type& items) noexcept
     {
-        return handle_impl(env, items, std::index_sequence_for<Args...>{});
+        return handle_impl(env, items, std::index_sequence_for<Args...> {});
     }
 };
 
-
-#ifdef HAS_VARIANT
 
 template <typename... Args>
 struct type_cast<std::variant<Args...>>
@@ -305,10 +299,12 @@ private:
 public:
     static ERL_NIF_TERM handle(ErlNifEnv* env, const erl_result_type& result) noexcept
     {
+        static ERL_NIF_TERM ok_atom_term = type_cast<atom>::handle(env, "ok"_atom);
+        static ERL_NIF_TERM error_atom_term = type_cast<atom>::handle(env, "error"_atom);
+
         if (result.index() == 0)
-            return type_cast<ok_tuple_type>::handle(env, ok_tuple_type(atom("ok"), std::get<0>(result)));
+            return enif_make_tuple2(env, ok_atom_term, type_cast<OkType>::handle(env, std::get<0>(result)));
         else
-            return type_cast<error_tuple_type>::handle(env, error_tuple_type(atom("error"), std::get<1>(result)));
+            return enif_make_tuple2(env, error_atom_term, type_cast<ErrorType>::handle(env, std::get<1>(result)));
     };
 };
-#endif

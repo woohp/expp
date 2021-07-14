@@ -9,22 +9,27 @@ struct term
     {
         return enif_is_atom(this->env, this->term);
     }
+
     bool is_binary() const
     {
         return enif_is_binary(this->env, this->term);
     }
+
     bool is_fun() const
     {
         return enif_is_fun(this->env, this->term);
     }
+
     bool is_map() const
     {
         return enif_is_map(this->env, this->term);
     }
+
     bool is_number() const
     {
         return enif_is_number(this->env, this->term);
     }
+
     bool is_tuple() const
     {
         return enif_is_map(this->env, this->term);
@@ -45,10 +50,11 @@ struct type_cast<term>
 {
     static term load(ErlNifEnv* env, ERL_NIF_TERM _term)
     {
-
+        return term { env, _term };
     }
 
     static ERL_NIF_TERM handle(ErlNifEnv* env, term _term)
     {
+        return _term.term;
     }
 };
