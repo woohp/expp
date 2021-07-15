@@ -45,8 +45,8 @@ variant<int, string> handle_variant(variant<int, string> v)
 }
 
 
-ELIXIR_MODULE(
-    Foo,
+MODULE(
+    Elixir.Foo,
     def(times, "times"),
     def(times2, "times2"),
     def(times4, "times4"),
