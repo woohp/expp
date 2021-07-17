@@ -15,16 +15,17 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     static constexpr size_t nargs = sizeof...(Args);
     static constexpr bool is_noexcept = IsNoexcept;
 
-    template <std::size_t... I>
+    template <func_type fn, std::size_t... I>
     constexpr static R
-    apply_impl(func_type fn, ErlNifEnv* env, const ERL_NIF_TERM argv[], std::index_sequence<I...>) noexcept(IsNoexcept)
+    apply_impl(ErlNifEnv* env, const ERL_NIF_TERM argv[], std::index_sequence<I...>) noexcept(IsNoexcept)
     {
         return fn(type_cast<std::decay_t<Args>>::load(env, argv[I])...);
     }
 
-    constexpr static R apply(func_type fn, ErlNifEnv* env, const ERL_NIF_TERM argv[]) noexcept(IsNoexcept)
+    template <func_type fn>
+    constexpr static R apply(ErlNifEnv* env, const ERL_NIF_TERM argv[]) noexcept(IsNoexcept)
     {
-        return apply_impl(fn, env, argv, std::make_index_sequence<nargs> {});
+        return apply_impl<fn>(env, argv, std::make_index_sequence<nargs> {});
     }
 };
 
@@ -37,7 +38,7 @@ wrapper(ErlNifEnv* env, int, const ERL_NIF_TERM argv[]) noexcept(function_traits
 
     if constexpr (func_traits::is_noexcept)
     {
-        auto ret = func_traits::apply(fn, env, argv);
+        auto ret = func_traits::template apply<fn>(env, argv);
         return type_cast<std::decay_t<decltype(ret)>>::handle(env, std::move(ret));
     }
 
@@ -45,7 +46,7 @@ wrapper(ErlNifEnv* env, int, const ERL_NIF_TERM argv[]) noexcept(function_traits
     {
         try
         {
-            auto ret = func_traits::apply(fn, env, argv);
+            auto ret = func_traits::template apply<fn>(env, argv);
             return type_cast<std::decay_t<decltype(ret)>>::handle(env, std::move(ret));
         }
         catch (const std::invalid_argument& e)
