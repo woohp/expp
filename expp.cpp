@@ -47,8 +47,8 @@ variant<int, string> handle_variant(variant<int, string> v)
 
 MODULE(
     Elixir.Foo,
-    def(times, "times"),
-    def(times2, "times2"),
-    def(times4, "times4"),
-    def(times5, "times5"),
-    def(handle_variant, "handle_variant"), )
+    def(times, "times", DirtyFlags::NotDirty),
+    def(times2, "times2", DirtyFlags::NotDirty),
+    def(times4, "times4", DirtyFlags::NotDirty),
+    def(times5, "times5", DirtyFlags::NotDirty),
+    def(handle_variant, "handle_variant", DirtyFlags::NotDirty), )

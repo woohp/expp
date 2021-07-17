@@ -225,7 +225,8 @@ private:
     }
 
     template <std::size_t... I>
-    constexpr static ERL_NIF_TERM handle_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
+    constexpr static ERL_NIF_TERM
+    handle_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
     {
         return enif_make_tuple(
             env, std::tuple_size_v<tuple_type>, type_cast<std::decay_t<Args>>::handle(env, std::get<I>(items))...);
