@@ -194,7 +194,7 @@ struct type_cast<atom>
 template <typename X, typename Y>
 struct type_cast<std::pair<X, Y>>
 {
-    static std::pair<X, Y> load(ErlNifEnv* env, ERL_NIF_TERM term)
+    constexpr static std::pair<X, Y> load(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         const ERL_NIF_TERM* tup_array;
         int arity;
@@ -205,7 +205,7 @@ struct type_cast<std::pair<X, Y>>
         return std::pair<X, Y>(type_cast<X>::load(env, tup_array[0]), type_cast<Y>::load(env, tup_array[1]));
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const std::pair<X, Y>& item) noexcept
+    constexpr static ERL_NIF_TERM handle(ErlNifEnv* env, const std::pair<X, Y>& item) noexcept
     {
         return enif_make_tuple2(env, type_cast<X>::handle(env, item.first), type_cast<Y>::handle(env, item.second));
     }
@@ -219,13 +219,13 @@ private:
     typedef std::tuple<Args...> tuple_type;
 
     template <std::size_t... I>
-    static tuple_type load_impl(ErlNifEnv* env, const ERL_NIF_TERM* tup_array, std::index_sequence<I...>)
+    constexpr static tuple_type load_impl(ErlNifEnv* env, const ERL_NIF_TERM* tup_array, std::index_sequence<I...>)
     {
         return tuple_type(type_cast<std::decay_t<Args>>::load(env, tup_array[I])...);
     }
 
     template <std::size_t... I>
-    static ERL_NIF_TERM handle_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
+    constexpr static ERL_NIF_TERM handle_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
     {
         return enif_make_tuple(
             env, std::tuple_size_v<tuple_type>, type_cast<std::decay_t<Args>>::handle(env, std::get<I>(items))...);
@@ -255,7 +255,7 @@ private:
     typedef std::variant<Args...> variant_type;
 
     template <int I, typename T, typename... Rest>
-    static variant_type load_impl(ErlNifEnv* env, ERL_NIF_TERM term)
+    constexpr static variant_type load_impl(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         try
         {
@@ -271,12 +271,12 @@ private:
     }
 
 public:
-    static variant_type load(ErlNifEnv* env, ERL_NIF_TERM term)
+    constexpr static variant_type load(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         return type_cast<std::variant<Args...>>::load_impl<0, Args...>(env, term);
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const variant_type& item) noexcept
+    constexpr static ERL_NIF_TERM handle(ErlNifEnv* env, const variant_type& item) noexcept
     {
         return std::visit(
             [env, &item](auto&& arg) {

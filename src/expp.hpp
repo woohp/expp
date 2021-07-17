@@ -15,12 +15,12 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     static constexpr size_t nargs = sizeof...(Args);
 
     template <std::size_t... I>
-    static R apply_impl(func_type fn, ErlNifEnv* env, const ERL_NIF_TERM argv[], std::index_sequence<I...>) noexcept(IsNoexcept)
+    constexpr static R apply_impl(func_type fn, ErlNifEnv* env, const ERL_NIF_TERM argv[], std::index_sequence<I...>) noexcept(IsNoexcept)
     {
         return fn(type_cast<std::decay_t<Args>>::load(env, argv[I])...);
     }
 
-    static R apply(func_type fn, ErlNifEnv* env, const ERL_NIF_TERM argv[]) noexcept(IsNoexcept)
+    constexpr static R apply(func_type fn, ErlNifEnv* env, const ERL_NIF_TERM argv[]) noexcept(IsNoexcept)
     {
         return apply_impl(fn, env, argv, std::make_index_sequence<nargs> {});
     }
@@ -28,7 +28,7 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
 
 
 template <typename Fn, Fn fn>
-ERL_NIF_TERM wrapper(ErlNifEnv* env, int, const ERL_NIF_TERM argv[])
+constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int, const ERL_NIF_TERM argv[])
 {
     using func_traits = function_traits<Fn>;
     try
@@ -53,7 +53,7 @@ ERL_NIF_TERM wrapper(ErlNifEnv* env, int, const ERL_NIF_TERM argv[])
 
 
 template <typename Fn, Fn fn>
-ErlNifFunc constexpr def_impl(const char* name)
+constexpr ErlNifFunc def_impl(const char* name)
 {
     ErlNifFunc entry = {
         name,
