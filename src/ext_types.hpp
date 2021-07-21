@@ -21,7 +21,7 @@ struct erl_error : erl_error_base
         : error_value(error_value)
     { }
 
-    constexpr ERL_NIF_TERM get_term(ErlNifEnv* env) const
+    ERL_NIF_TERM get_term(ErlNifEnv* env) const
     {
         using error_type = std::tuple<atom, std::decay_t<T>>;
         return type_cast<error_type>::handle(env, error_type("error"_atom, error_value));

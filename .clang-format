@@ -26,4 +26,5 @@ AllowShortFunctionsOnASingleLine: Empty
 BinPackParameters: false
 KeepEmptyLinesAtTheStartOfBlocks: false
 BinPackArguments: false
+NamespaceIndentation: None
 MaxEmptyLinesToKeep: 2

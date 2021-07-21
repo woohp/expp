@@ -17,22 +17,41 @@ struct type_cast;
 class binary : public ErlNifBinary
 {
 private:
-    bool needs_release = false;
+    ERL_NIF_TERM _term = 0;
 
     friend struct type_cast<binary>;
 
     binary() { }
 
 public:
-    explicit binary(unsigned size)
+    explicit binary(size_t size)
     {
-        needs_release = enif_alloc_binary(size, this);
+        enif_alloc_binary(size, this);
     }
+
+    binary(binary&& other)
+    {
+        memcpy(
+            this,
+            &other,
+            sizeof(ErlNifBinary));  // use memcpy to bitwise copy the full struct, including the opaque fields
+        this->_term = other._term;
+
+        other.size = 0;
+        other.data = nullptr;
+        other._term = 0;
+    }
+
+    binary(const binary& other) = delete;
 
     ~binary()
     {
-        if (needs_release)
+        if (!this->_term && this->data)
+        {
             enif_release_binary(this);
+            this->size = 0;
+            this->data = nullptr;
+        }
     }
 };
 
@@ -156,14 +175,19 @@ struct type_cast<binary>
         binary b;
         if (!enif_inspect_binary(env, term, &b))
             throw std::invalid_argument("invalid binary");
+        b._term = term;
         return b;
     }
 
     static ERL_NIF_TERM handle(ErlNifEnv* env, const binary& b) noexcept
     {
+        if (b._term)
+            return b._term;
+
         auto b_ = const_cast<binary*>(&b);
-        b_->needs_release = false;
-        return enif_make_binary(env, reinterpret_cast<ErlNifBinary*>(b_));
+        b_->_term = enif_make_binary(env, reinterpret_cast<ErlNifBinary*>(b_));
+
+        return b_->_term;
     }
 };
 
@@ -196,7 +220,7 @@ struct type_cast<std::pair<X, Y>>
 {
     constexpr static std::pair<X, Y> load(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        const ERL_NIF_TERM* tup_array;
+        const ERL_NIF_TERM* tup_array = nullptr;
         int arity;
         if (!enif_get_tuple(env, term, &arity, &tup_array))
             throw std::invalid_argument("invalid pair");
