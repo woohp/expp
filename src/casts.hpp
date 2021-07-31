@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <erl_nif.h>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -21,28 +22,30 @@ private:
 
     friend struct type_cast<binary>;
 
+    binary& operator=(const binary&) = default;
+
+public:
     binary()
     {
         this->size = 0;
         this->data = nullptr;
     }
 
-public:
     explicit binary(size_t size)
     {
         enif_alloc_binary(size, this);
     }
 
+    template <size_t N>
+    explicit binary(const char (&str)[N])
+    {
+        enif_alloc_binary(N - 1, this);
+        std::copy_n(str, N - 1, this->data);
+    }
+
     binary(binary&& other)
     {
-        memcpy(
-            this,
-            &other,
-            sizeof(binary));  // use memcpy to bitwise copy the full struct, including the opaque fields
-
-        other.size = 0;
-        other.data = nullptr;
-        other._term = 0;
+        this->operator=(std::move(other));
     }
 
     binary(const binary& other) = delete;
@@ -55,6 +58,64 @@ public:
             this->size = 0;
             this->data = nullptr;
         }
+    }
+
+    binary& operator=(binary&& other)
+    {
+        *this = other;
+
+        other.size = 0;
+        other.data = nullptr;
+        other._term = 0;
+
+        return *this;
+    }
+};
+
+
+binary operator"" _binary(const char* s, std::size_t len)
+{
+    binary binary_info;
+    enif_alloc_binary(len, &binary_info);
+    std::copy_n(s, len, binary_info.data);
+    return binary_info;
+}
+
+
+template <typename T>
+class resource
+{
+    ErlNifEnv* env;
+    ERL_NIF_TERM term;
+    void* objp;
+
+    friend struct type_cast<resource<T>>;
+
+    resource(ErlNifEnv* env, ERL_NIF_TERM term)
+        : env(env)
+        , term(term)
+        , objp(nullptr)
+    { }
+
+    resource(T* objp)
+        : env(nullptr)
+        , term(0)
+        , objp(objp)
+    { }
+
+public:
+    T& get(ErlNifResourceType* resource_type)
+    {
+        if (!enif_get_resource(env, term, resource_type, &this->objp))
+            throw std::invalid_argument("invalid resource");
+        return *reinterpret_cast<T*>(this->objp);
+    }
+
+    static resource<T> alloc(const T& obj, ErlNifResourceType* resource_type)
+    {
+        T* objp = reinterpret_cast<T*>(enif_alloc_resource(resource_type, sizeof(T)));
+        *objp = obj;
+        return resource<T> { objp };
     }
 };
 
@@ -335,4 +396,54 @@ public:
         else
             return enif_make_tuple2(env, error_atom_term, type_cast<ErrorType>::handle(env, std::get<1>(result)));
     };
+};
+
+
+template <typename T>
+struct type_cast<std::optional<T>>
+{
+    static std::optional<T> load(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        if (enif_is_atom(env, term))
+        {
+            char buf[5];
+            if (enif_get_atom(env, term, buf, 5, ERL_NIF_LATIN1) != 4)
+                throw std::invalid_argument("not nil");
+            if (buf[0] != 'n' || buf[1] != 'i' || buf[2] != 'l')
+                throw std::invalid_argument("not nil");
+            return std::nullopt;
+        }
+        else
+        {
+            return type_cast<T>::load(env, term);
+        }
+    }
+
+    static ERL_NIF_TERM handle(ErlNifEnv* env, const std::optional<T>& item)
+    {
+        if (item)
+            return type_cast<T>::handle(env, *item);
+        else
+        {
+            static ERL_NIF_TERM nil_atom_term = type_cast<atom>::handle(env, "nil"_atom);
+            return nil_atom_term;
+        }
+    }
+};
+
+
+template <typename T>
+struct type_cast<resource<T>>
+{
+    static resource<T> load(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return resource<T> { env, term };
+    }
+
+    static ERL_NIF_TERM handle(ErlNifEnv* env, const resource<T>& res)
+    {
+        const auto document_term = enif_make_resource(env, res.objp);
+        enif_release_resource(res.objp);
+        return document_term;
+    }
 };

@@ -2,8 +2,8 @@ defmodule FooTest do
   use ExUnit.Case
   doctest Foo
 
-  test "tuple times number" do
-    assert Foo.times({1, 2, 3}, 2) == {2, 4, 6}
+  test "list times number" do
+    assert Foo.times([1, 2, 3], 2) == [2, 4, 6]
   end
 
   test "map keys times values" do
