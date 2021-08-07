@@ -12,6 +12,22 @@ vector<int> times(vector<int> v, int i)
 }
 
 
+vector<char> vector_char_plus_one(vector<char> v)
+{
+    for (auto& c : v)
+        c++;
+    return v;
+}
+
+
+vector<int8_t> vector_int8_plus_one(vector<int8_t> v)
+{
+    for (auto& c : v)
+        c++;
+    return v;
+}
+
+
 unordered_map<int, int> times2(unordered_map<int, int> m)
 {
     for (auto& item : m)
@@ -80,6 +96,8 @@ MODULE(
     nullptr,
     nullptr,
     def(times, DirtyFlags::NotDirty),
+    def(vector_char_plus_one, DirtyFlags::NotDirty),
+    def(vector_int8_plus_one, DirtyFlags::NotDirty),
     def(times2, DirtyFlags::NotDirty),
     def(times4, DirtyFlags::NotDirty),
     def(times5, DirtyFlags::NotDirty),

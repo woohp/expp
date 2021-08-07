@@ -9,6 +9,8 @@ defmodule Foo do
   end
 
   def times(_v, _i), do: "NIF library not loaded"
+  def vector_char_plus_one(_v), do: "NIF library not loaded"
+  def vector_int8_plus_one(_v), do: "NIF library not loaded"
   def times2(_m), do: "NIF library not loaded"
   def times4(_t), do: "NIF library not loaded"
   def times5(_i), do: "NIF library not loaded"

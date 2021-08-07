@@ -28,6 +28,14 @@ defmodule FooTest do
     end
   end
 
+  test "vector<char> should convert to/from binaries" do
+    assert Foo.vector_char_plus_one("23467") == "34578"
+  end
+
+  test "vector<int8> should convert to/from binaries" do
+    assert Foo.vector_int8_plus_one("23467") == "34578"
+  end
+
   test "bool arguments" do
     assert Foo.bool_arguments(true) == 3
     assert Foo.bool_arguments(false) == 5
