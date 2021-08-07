@@ -45,6 +45,18 @@ variant<int, string> handle_variant(variant<int, string> v)
 }
 
 
+int bool_arguments(bool b)
+{
+    return b ? 3 : 5;
+}
+
+
+bool bool_returns(int i)
+{
+    return i < 0;
+}
+
+
 MODULE(
     Elixir.Foo,
     nullptr,
@@ -54,4 +66,6 @@ MODULE(
     def(times2, "times2", DirtyFlags::NotDirty),
     def(times4, "times4", DirtyFlags::NotDirty),
     def(times5, "times5", DirtyFlags::NotDirty),
-    def(handle_variant, "handle_variant", DirtyFlags::NotDirty), )
+    def(handle_variant, "handle_variant", DirtyFlags::NotDirty),
+    def(bool_arguments, "bool_arguments", DirtyFlags::NotDirty),
+    def(bool_returns, "bool_returns", DirtyFlags::NotDirty), )

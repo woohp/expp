@@ -177,6 +177,33 @@ struct type_cast<atom>
 };
 
 
+template <>
+struct type_cast<bool>
+{
+    static bool load(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        char buf[8];
+        int bytes_read = enif_get_atom(env, term, buf, 8, ERL_NIF_LATIN1);
+        if (bytes_read == 5 && std::string_view(buf, 4) == "true")
+            return true;
+        else if (bytes_read == 6 && std::string_view(buf, 5) == "false")
+            return false;
+        else
+            throw std::invalid_argument("not boolean");
+    }
+
+    static ERL_NIF_TERM handle(ErlNifEnv* env, bool b) noexcept
+    {
+        static ERL_NIF_TERM true_atom_term = type_cast<atom>::handle(env, "true"_atom);
+        static ERL_NIF_TERM false_atom_term = type_cast<atom>::handle(env, "false"_atom);
+        if (b)
+            return true_atom_term;
+        else
+            return false_atom_term;
+    }
+};
+
+
 template <typename X, typename Y>
 struct type_cast<std::pair<X, Y>>
 {
@@ -302,12 +329,14 @@ struct type_cast<std::optional<T>>
 {
     static std::optional<T> load(ErlNifEnv* env, ERL_NIF_TERM term)
     {
+        static_assert(!std::is_same_v<T, atom>, "std::optional cannot wrap an atom");
+
         if (enif_is_atom(env, term))
         {
-            char buf[5];
-            if (enif_get_atom(env, term, buf, 5, ERL_NIF_LATIN1) != 4)
+            char buf[8];
+            if (enif_get_atom(env, term, buf, 8, ERL_NIF_LATIN1) != 4)
                 throw std::invalid_argument("not nil");
-            if (buf[0] != 'n' || buf[1] != 'i' || buf[2] != 'l')
+            if (std::string_view(buf, 3) != "nil")
                 throw std::invalid_argument("not nil");
             return std::nullopt;
         }

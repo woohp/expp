@@ -22,4 +22,24 @@ defmodule FooTest do
     assert Foo.handle_variant(5) == 25
     assert Foo.handle_variant("5") == "55"
   end
+
+  test "bool arguments" do
+    assert Foo.bool_arguments(true) == 3
+    assert Foo.bool_arguments(false) == 5
+
+    assert_raise ArgumentError, fn ->
+      assert Foo.bool_arguments(1)
+    end
+    assert_raise ArgumentError, fn ->
+      assert Foo.bool_arguments(:tru)
+    end
+    assert_raise ArgumentError, fn ->
+      assert Foo.bool_arguments(:truetrue)
+    end
+  end
+
+  test "bool returns" do
+    assert Foo.bool_returns(-5) == true
+    assert Foo.bool_returns(5) == false
+  end
 end

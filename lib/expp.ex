@@ -27,4 +27,12 @@ defmodule Foo do
   def handle_variant(_v) do
     "NIF library not loaded"
   end
+
+  def bool_arguments(_b) do
+    "NIF library not loaded"
+  end
+
+  def bool_returns(_i) do
+    "NIF library not loaded"
+  end
 end
