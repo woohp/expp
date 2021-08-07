@@ -31,7 +31,7 @@ erl_result<int, string> times5(int i)
     return Ok(i * 5);
 }
 
-variant<int, string> handle_variant(variant<int, string> v)
+variant<int, string> variant_int_and_string(variant<int, string> v)
 {
     return std::visit(
         [](auto&& arg) {
@@ -57,15 +57,34 @@ bool bool_returns(int i)
 }
 
 
+int optional_arguments(optional<int> i)
+{
+    if (i)
+        return *i;
+    else
+        return -123;
+}
+
+
+optional<int> optional_returns(int i)
+{
+    if (i < 0)
+        return nullopt;
+    return i;
+}
+
+
 MODULE(
     Elixir.Foo,
     nullptr,
     nullptr,
     nullptr,
-    def(times, "times", DirtyFlags::NotDirty),
-    def(times2, "times2", DirtyFlags::NotDirty),
-    def(times4, "times4", DirtyFlags::NotDirty),
-    def(times5, "times5", DirtyFlags::NotDirty),
-    def(handle_variant, "handle_variant", DirtyFlags::NotDirty),
-    def(bool_arguments, "bool_arguments", DirtyFlags::NotDirty),
-    def(bool_returns, "bool_returns", DirtyFlags::NotDirty), )
+    def(times, DirtyFlags::NotDirty),
+    def(times2, DirtyFlags::NotDirty),
+    def(times4, DirtyFlags::NotDirty),
+    def(times5, DirtyFlags::NotDirty),
+    def(variant_int_and_string, DirtyFlags::NotDirty),
+    def(bool_arguments, DirtyFlags::NotDirty),
+    def(bool_returns, DirtyFlags::NotDirty),
+    def(optional_arguments, DirtyFlags::NotDirty),
+    def(optional_returns, DirtyFlags::NotDirty), )
