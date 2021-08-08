@@ -3,8 +3,8 @@ defmodule FooTest do
 
   doctest Foo
 
-  test "list times number" do
-    assert Foo.times([1, 2, 3], 2) == [2, 4, 6]
+  test "list (vector) times int" do
+    assert Foo.vector_times_int([1, 2, 3], 2) == [2, 4, 6]
   end
 
   test "map keys times values" do
@@ -74,5 +74,24 @@ defmodule FooTest do
   test "optional returns" do
     assert Foo.optional_returns(5) == 5
     assert is_nil(Foo.optional_returns(-123))
+  end
+
+  test "erl_result returns" do
+    assert Foo.get_erl_result(3) == {:ok, 123}
+    assert Foo.get_erl_result(-5) == {:error, -123}
+  end
+
+  test "erl_result returns binary error message" do
+    assert Foo.get_erl_result_binary_error(-5) == {:error, "my bad..."}
+  end
+
+  test "test atom arguments" do
+    assert Foo.atom_arguments(:foo) == 1
+    assert Foo.atom_arguments(:bar) == -1
+  end
+
+  test "test atom returns" do
+    assert Foo.atom_returns(123) == :foo
+    assert Foo.atom_returns(-123) == :bar
   end
 end

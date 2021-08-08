@@ -4,7 +4,7 @@
 using namespace std;
 
 
-vector<int> times(vector<int> v, int i)
+vector<int> vector_times_int(vector<int> v, int i)
 {
     for (auto& x : v)
         x *= i;
@@ -90,12 +90,42 @@ optional<int> optional_returns(int i)
 }
 
 
+erl_result<int, int> get_erl_result(int i)
+{
+    if (i >= 0)
+        return Ok(123);
+    else
+        return Error(-123);
+}
+
+
+erl_result<int, binary> get_erl_result_binary_error(int i)
+{
+    if (i >= 0)
+        return Ok(123);
+    else
+        return Error("my bad..."_binary);
+}
+
+
+int atom_arguments(atom a)
+{
+    return a == "foo" ? 1 : -1;
+}
+
+
+atom atom_returns(int i)
+{
+    return i >= 0 ? "foo"_atom : "bar"_atom;
+}
+
+
 MODULE(
     Elixir.Foo,
     nullptr,
     nullptr,
     nullptr,
-    def(times, DirtyFlags::NotDirty),
+    def(vector_times_int, DirtyFlags::NotDirty),
     def(vector_char_plus_one, DirtyFlags::NotDirty),
     def(vector_int8_plus_one, DirtyFlags::NotDirty),
     def(times2, DirtyFlags::NotDirty),
@@ -105,4 +135,8 @@ MODULE(
     def(bool_arguments, DirtyFlags::NotDirty),
     def(bool_returns, DirtyFlags::NotDirty),
     def(optional_arguments, DirtyFlags::NotDirty),
-    def(optional_returns, DirtyFlags::NotDirty), )
+    def(optional_returns, DirtyFlags::NotDirty),
+    def(get_erl_result, DirtyFlags::NotDirty),
+    def(get_erl_result_binary_error, DirtyFlags::NotDirty),
+    def(atom_arguments, DirtyFlags::NotDirty),
+    def(atom_returns, DirtyFlags::NotDirty), )
