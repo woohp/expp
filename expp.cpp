@@ -120,9 +120,28 @@ atom atom_returns(int i)
 }
 
 
+cppcoro::generator<optional<pair<int, int>>> simple_coroutine(int n)
+{
+    for (int i = 0; i < n; i++)
+    {
+        if (i < n - 1)
+            co_yield nullopt;
+        else
+            co_yield make_pair(i, i * i);
+    }
+}
+
+
+int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
+{
+    generator_resource_t::init(env, "generator_resource");
+    return 0;
+}
+
+
 MODULE(
     Elixir.Foo,
-    nullptr,
+    load,
     nullptr,
     nullptr,
     def(vector_times_int, DirtyFlags::NotDirty),
@@ -139,4 +158,5 @@ MODULE(
     def(get_erl_result, DirtyFlags::NotDirty),
     def(get_erl_result_binary_error, DirtyFlags::NotDirty),
     def(atom_arguments, DirtyFlags::NotDirty),
-    def(atom_returns, DirtyFlags::NotDirty), )
+    def(atom_returns, DirtyFlags::NotDirty),
+    def(simple_coroutine, DirtyFlags::NotDirty), )

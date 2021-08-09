@@ -94,4 +94,8 @@ defmodule FooTest do
     assert Foo.atom_returns(123) == :foo
     assert Foo.atom_returns(-123) == :bar
   end
+
+  test "coroutines" do
+    assert Foo.simple_coroutine(5) == {4, 16}
+  end
 end

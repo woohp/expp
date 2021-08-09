@@ -1,5 +1,5 @@
 ERLANG_PATH = $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])])' -s init stop -noshell)
-CFLAGS = -g -O2 -ansi -pedantic -Wall -Wextra -I$(ERLANG_PATH) -std=c++20
+CFLAGS = -g -O2 -ansi -pedantic -Wall -Wextra -I$(ERLANG_PATH) -std=c++20 -fcoroutines-ts
 
 ifneq ($(OS), Windows_NT)
     CFLAGS += -fPIC

@@ -1,8 +1,29 @@
 #pragma once
 #include "casts.hpp"
 #include "ext_types.hpp"
+#include "generator.hpp"
+#include "resource.hpp"
 #include <erl_nif.h>
+#include <optional>
 #include <utility>
+
+
+template <typename T>
+struct is_generator
+{
+    static const bool value = false;
+};
+
+
+template <typename T>
+struct is_generator<cppcoro::generator<std::optional<T>>>
+{
+    static const bool value = true;
+};
+
+
+template <typename T>
+inline constexpr bool is_generator_v = is_generator<T>::value;
 
 
 template <typename T>
@@ -12,6 +33,7 @@ template <typename R, typename... Args, bool IsNoexcept>
 struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
 {
     using func_type = R(Args...) noexcept(IsNoexcept);
+    using return_type = R;
     static constexpr size_t nargs = sizeof...(Args);
 
     template <func_type fn, std::size_t... I>
@@ -28,6 +50,24 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
 };
 
 
+using generator_resource_t = resource<cppcoro::generator<std::optional<int>>>;
+
+
+template <typename GeneratorType>
+ERL_NIF_TERM coroutine_step(ErlNifEnv* env, int, const ERL_NIF_TERM argv[])
+{
+    auto coroutine_resource = type_cast<generator_resource_t>::load(env, argv[0]);
+    auto& coro = coroutine_resource.get<GeneratorType>();
+    auto it = std::begin(coro);
+    auto& out = *it;
+
+    if (out)
+        return type_cast<std::decay_t<decltype(*out)>>::handle(env, *out);
+    else
+        return enif_schedule_nif(env, "coroutine_step", 0, coroutine_step<GeneratorType>, 1, argv);
+}
+
+
 template <auto fn>
 constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -39,7 +79,19 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     try
     {
         auto ret = func_traits::template apply<fn>(env, argv);
-        return type_cast<std::decay_t<decltype(ret)>>::handle(env, std::move(ret));
+
+        using return_type = typename func_traits::return_type;  // aka GeneratorType
+        if constexpr (is_generator_v<return_type>)
+        {
+            void* buf = enif_alloc_resource(generator_resource_t::resource_type, sizeof(ret));
+            new (buf) decltype(ret) { std::move(ret) };
+            ERL_NIF_TERM out[] = { enif_make_resource(env, buf) };
+            return enif_schedule_nif(env, "coroutine_step", 0, coroutine_step<return_type>, 1, out);
+        }
+        else
+        {
+            return type_cast<std::decay_t<decltype(ret)>>::handle(env, std::move(ret));
+        }
     }
     catch (const std::invalid_argument& e)
     {

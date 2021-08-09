@@ -23,4 +23,5 @@ defmodule Foo do
   def get_erl_result_binary_error(_i), do: "NIF library not loaded"
   def atom_arguments(_a), do: "NIF library not loaded"
   def atom_returns(_i), do: "NIF library not loaded"
+  def simple_coroutine(_i), do: "NIF library not loaded"
 end
