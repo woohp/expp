@@ -39,11 +39,11 @@ defmodule MyMod do
   def init do
     base_path =
       case :code.priv_dir(unquote(app)) do
-        {:error, :bad_name} -> 'priv'
+        {:error, :bad_name} -> ~c"priv"
         dir -> dir
       end
 
-    path = :filename.join(base_path, 'my_mod')
+    path = :filename.join(base_path, ~c"my_mod")
     :ok = :erlang.load_nif(path, 0)
   end
 
@@ -77,7 +77,7 @@ defmodule MyMod.MixProject do
     [
       app: :my_mod,
       version: @version,
-      elixir: "~> 1.12",
+      elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       compilers: [:my_mod, :elixir, :app],
       deps: deps()

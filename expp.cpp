@@ -140,7 +140,7 @@ int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 
 
 MODULE(
-    Elixir.Foo,
+    Elixir.MyMod,
     load,
     nullptr,
     nullptr,

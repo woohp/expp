@@ -1,10 +1,10 @@
-defmodule Foo do
+defmodule MyMod do
   @moduledoc """
-  Documentation for Foo.
+  Documentation for MyMod.
   """
 
-  @on_load :init
-  def init() do
+  @on_load :load_nif
+  def load_nif() do
     :ok = :erlang.load_nif(~c"expp", 0)
   end
 
