@@ -28,6 +28,10 @@ defmodule MyModTest do
     end
   end
 
+  test "string_view to convert to/from binaries" do
+    assert MyMod.stringview_identity("123xyz") == "123xyz"
+  end
+
   test "vector<char> should convert to/from binaries" do
     assert MyMod.vector_char_plus_one("23467") == "34578"
   end

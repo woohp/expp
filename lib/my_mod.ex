@@ -11,6 +11,7 @@ defmodule MyMod do
   def times2(_m), do: "NIF library not loaded"
   def times4(_t), do: "NIF library not loaded"
   def times5(_i), do: "NIF library not loaded"
+  def stringview_identity(_s), do: "NIF library not loaded"
   def variant_int_and_string(_v), do: "NIF library not loaded"
   def bool_arguments(_b), do: "NIF library not loaded"
   def bool_returns(_i), do: "NIF library not loaded"

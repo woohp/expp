@@ -61,6 +61,12 @@ variant<int, string> variant_int_and_string(variant<int, string> v)
 }
 
 
+string_view stringview_identity(string_view s)
+{
+    return s;
+}
+
+
 int bool_arguments(bool b)
 {
     return b ? 3 : 5;
@@ -150,6 +156,7 @@ MODULE(
     def(times2, DirtyFlags::NotDirty),
     def(times4, DirtyFlags::NotDirty),
     def(times5, DirtyFlags::NotDirty),
+    def(stringview_identity, DirtyFlags::NotDirty),
     def(variant_int_and_string, DirtyFlags::NotDirty),
     def(bool_arguments, DirtyFlags::NotDirty),
     def(bool_returns, DirtyFlags::NotDirty),

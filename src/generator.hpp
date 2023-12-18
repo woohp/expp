@@ -5,8 +5,8 @@
 #ifndef CPPCORO_GENERATOR_HPP_INCLUDED
 #define CPPCORO_GENERATOR_HPP_INCLUDED
 
-#include <exception>
 #include <coroutine>
+#include <exception>
 #include <functional>
 #include <iterator>
 #include <type_traits>
