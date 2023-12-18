@@ -3,10 +3,7 @@ defmodule MyMod do
   Documentation for MyMod.
   """
 
-  @on_load :load_nif
-  def load_nif() do
-    :ok = :erlang.load_nif(~c"expp", 0)
-  end
+  use Expp, ext: "./expp"
 
   def vector_times_int(_v, _i), do: "NIF library not loaded"
   def vector_char_plus_one(_v), do: "NIF library not loaded"
