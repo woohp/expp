@@ -140,7 +140,7 @@ cppcoro::generator<optional<pair<int, int>>> simple_coroutine(int n)
 
 int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 {
-    generator_resource_t::init(env, "generator_resource");
+    yielding_resource_t::init(env, "yielding_generator");
     return 0;
 }
 
