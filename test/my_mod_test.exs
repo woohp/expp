@@ -49,6 +49,10 @@ defmodule MyModTest do
     end
 
     assert_raise ArgumentError, fn ->
+      MyMod.bool_arguments("true")
+    end
+
+    assert_raise ArgumentError, fn ->
       MyMod.bool_arguments(:tru)
     end
 
