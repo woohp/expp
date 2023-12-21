@@ -14,3 +14,7 @@ expp.so: clean
 
 clean:
 	$(RM) -r expp.so
+
+format:
+	clang-format -i src/*.hpp expp.cpp
+	mix format
