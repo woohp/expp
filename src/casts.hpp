@@ -20,6 +20,14 @@ template <typename T>
 struct type_cast;
 
 
+// template <typename T>
+// concept type_castable = requires(T t)
+// {
+//     type_cast<T>::handle(nullptr, t) -> ERL_NIF_TERM;
+//     type_cast<T>::load(nullptr, static_cast<ERL_NIF_TERM>(0)) -> std::template same_as<T>;
+// };
+
+
 template <>
 struct type_cast<int>
 {
