@@ -84,13 +84,13 @@ defmodule MyModTest do
     assert is_nil(MyMod.optional_returns(-123))
   end
 
-  test "erl_result returns" do
-    assert MyMod.get_erl_result(3) == {:ok, 123}
-    assert MyMod.get_erl_result(-5) == {:error, -123}
+  test "expected returns" do
+    assert MyMod.get_expected(3) == {:ok, 123}
+    assert MyMod.get_expected(-5) == {:error, -123}
   end
 
-  test "erl_result returns binary error message" do
-    assert MyMod.get_erl_result_binary_error(-5) == {:error, "my bad..."}
+  test "expected returns binary error message" do
+    assert MyMod.get_expected_stringview_error(-5) == {:error, "my bad..."}
   end
 
   test "test atom arguments" do

@@ -42,9 +42,9 @@ tuple<int, int, int> times4(tuple<int, int, int> m)
 }
 
 
-erl_result<int, string> times5(int i)
+std::expected<int, string> times5(int i)
 {
-    return Ok(i * 5);
+    return i * 5;
 }
 
 variant<int, string> variant_int_and_string(variant<int, string> v)
@@ -96,21 +96,21 @@ optional<int> optional_returns(int i)
 }
 
 
-erl_result<int, int> get_erl_result(int i)
+std::expected<int, int> get_expected(int i)
 {
     if (i >= 0)
-        return Ok(123);
+        return 123;
     else
-        return Error(-123);
+        return std::unexpected(-123);
 }
 
 
-erl_result<int, binary> get_erl_result_binary_error(int i)
+std::expected<int, std::string_view> get_expected_stringview_error(int i)
 {
     if (i >= 0)
-        return Ok(123);
+        return 123;
     else
-        return Error("my bad..."_binary);
+        return std::unexpected("my bad...");
 }
 
 
@@ -162,8 +162,8 @@ MODULE(
     def(bool_returns, DirtyFlags::NotDirty),
     def(optional_arguments, DirtyFlags::NotDirty),
     def(optional_returns, DirtyFlags::NotDirty),
-    def(get_erl_result, DirtyFlags::NotDirty),
-    def(get_erl_result_binary_error, DirtyFlags::NotDirty),
+    def(get_expected, DirtyFlags::NotDirty),
+    def(get_expected_stringview_error, DirtyFlags::NotDirty),
     def(atom_arguments, DirtyFlags::NotDirty),
     def(atom_returns, DirtyFlags::NotDirty),
     def(simple_coroutine, DirtyFlags::NotDirty), )
