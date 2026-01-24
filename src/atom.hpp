@@ -17,7 +17,7 @@ private:
         : name(std::move(name))
     { }
 
-    friend atom operator"" _atom(const char* s, std::size_t len);
+    friend atom operator""_atom(const char* s, std::size_t len);
 
     friend struct type_cast<atom>;
 
@@ -46,7 +46,7 @@ public:
 };
 
 
-atom operator"" _atom(const char* s, std::size_t len)
+atom operator""_atom(const char* s, std::size_t len)
 {
     return atom { s, len };
 }

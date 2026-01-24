@@ -65,7 +65,7 @@ public:
 };
 
 
-binary operator"" _binary(const char* s, std::size_t len)
+binary operator""_binary(const char* s, std::size_t len)
 {
     binary binary_info;
     enif_alloc_binary(len, &binary_info);

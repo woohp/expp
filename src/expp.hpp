@@ -31,7 +31,7 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
         return apply_impl<fn>(env, argv, std::make_index_sequence<nargs> {});
     }
 
-    constexpr static bool any_args_by_refenence()
+    constexpr static bool any_args_by_reference()
     {
         return (... || std::is_reference_v<Args>);
     }
@@ -104,7 +104,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             // 1. arguments by reference (the original stack is gone when it's resumed)
             // 2. arguments of type binary (the data pointer might be invalidated when it's resumed)
             static_assert(
-                !func_traits::any_args_by_refenence(), "generator functions cannot have pass-by-reference arguments");
+                !func_traits::any_args_by_reference(), "generator functions cannot have pass-by-reference arguments");
             static_assert(
                 !func_traits::template any_args_has_type<binary>(),
                 "generator functions cannot have arguments of type binary");
@@ -151,7 +151,7 @@ enum class DirtyFlags
 
 
 template <auto fn, DirtyFlags dirty_flag>
-constexpr ErlNifFunc def_impl(const char* name)
+consteval ErlNifFunc def_impl(const char* name)
 {
     ErlNifFunc entry = {
         name,
