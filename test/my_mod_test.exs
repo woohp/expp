@@ -142,6 +142,24 @@ defmodule MyModTest do
     assert MyMod.dirty_cpu_test(5) == 50
   end
 
+  test "Elixir exception structs" do
+    # Test ArgumentError from invalid decoding
+    try do
+      MyMod.vector_times_int("not a list", 2)
+    rescue
+      e in ArgumentError ->
+        assert e.message == "invalid vector"
+    end
+
+    # Test RuntimeError from C++ exception
+    try do
+      MyMod.raise_runtime_error_test()
+    rescue
+      e in RuntimeError ->
+        assert e.message == "this is a runtime error from C++"
+    end
+  end
+
   test "binary identity" do
     assert MyMod.binary_identity("hello") == "hello"
   end

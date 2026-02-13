@@ -69,11 +69,17 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 
     try
     {
-        auto ret = func_traits::template apply<fn>(env, argv);
+        using return_type = typename func_traits::return_type;
 
-        using return_type = typename func_traits::return_type;  // aka GeneratorType
-        if constexpr (is_yielding_v<return_type>)
+        if constexpr (std::is_void_v<return_type>)
         {
+            func_traits::template apply<fn>(env, argv);
+            return enif_make_atom(env, "ok");
+        }
+        else if constexpr (is_yielding_v<return_type>)
+        {
+            auto ret = func_traits::template apply<fn>(env, argv);
+
             // Do some type-checking to make sure we don't run into trouble:
             // Because generator functions can be resumed, they cannot take
             // 1. arguments by reference (the original stack is gone when it's resumed)
@@ -101,6 +107,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         }
         else
         {
+            auto ret = func_traits::template apply<fn>(env, argv);
             return type_cast<std::decay_t<decltype(ret)>>::to_term(env, std::move(ret));
         }
     }

@@ -213,6 +213,12 @@ binary binary_identity(binary b)
 }
 
 
+void raise_runtime_error_test()
+{
+    throw std::runtime_error("this is a runtime error from C++");
+}
+
+
 term term_identity(term t)
 {
     return t;
@@ -258,4 +264,5 @@ MODULE(
     def(throw_error, DirtyFlags::NotDirty),
     def(dirty_cpu_test, DirtyFlags::DirtyCpu),
     def(binary_identity, DirtyFlags::NotDirty),
-    def(term_identity, DirtyFlags::NotDirty), )
+    def(term_identity, DirtyFlags::NotDirty),
+    def(raise_runtime_error_test, DirtyFlags::NotDirty), )
