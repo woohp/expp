@@ -7,6 +7,8 @@
 #include <memory>
 
 
+namespace expp
+{
 // A yielding type is a generator that returns an optional of the underlying type.
 // If it yields nullopt, then the next nif execution will be scheduled, otherwise, that thing is returned to the caller.
 template <typename T>
@@ -85,11 +87,11 @@ struct yielding_resource_impl : yielding_resource_base
         }
         catch (const std::exception& e)
         {
-            auto reason = type_cast<std::string>::to_term(env, e.what());
-            return enif_raise_exception(env, reason);
+            return exceptions::raise_runtime_error(env, e.what());
         }
     }
 };
 
 
 using yielding_resource_t = resource<std::unique_ptr<yielding_resource_base>>;
+}

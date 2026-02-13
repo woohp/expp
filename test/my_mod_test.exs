@@ -146,6 +146,12 @@ defmodule MyModTest do
     assert MyMod.binary_identity("hello") == "hello"
   end
 
+  test "term identity" do
+    assert MyMod.term_identity(123) == 123
+    assert MyMod.term_identity("hello") == "hello"
+    assert MyMod.term_identity(:foo) == :foo
+  end
+
   test "empty list and map" do
     assert MyMod.vector_times_int([], 2) == []
     assert MyMod.times2(%{}) == %{}

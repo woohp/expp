@@ -31,4 +31,5 @@ defmodule MyMod do
   def throw_error(_i), do: "NIF library not loaded"
   def dirty_cpu_test(_i), do: "NIF library not loaded"
   def binary_identity(_b), do: "NIF library not loaded"
+  def term_identity(_t), do: "NIF library not loaded"
 end

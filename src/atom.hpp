@@ -3,6 +3,8 @@
 #include <string>
 
 
+namespace expp
+{
 struct atom
 {
 private:
@@ -46,4 +48,5 @@ public:
 inline atom operator""_atom(const char* s, std::size_t len)
 {
     return atom { s, len };
+}
 }

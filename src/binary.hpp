@@ -4,6 +4,8 @@
 #include <erl_nif.h>
 
 
+namespace expp
+{
 class binary : public ErlNifBinary
 {
 private:
@@ -82,4 +84,5 @@ inline binary operator""_binary(const char* s, std::size_t len)
     enif_alloc_binary(len, &binary_info);
     std::copy_n(s, len, binary_info.data);
     return binary_info;
+}
 }

@@ -2,6 +2,8 @@
 #include <erl_nif.h>
 
 
+namespace expp
+{
 template <typename T, typename... Args>
 inline constexpr bool is_brace_constructible_v = requires { T { std::declval<Args>()... }; };
 
@@ -86,3 +88,4 @@ public:
 template <typename T>
     requires std::destructible<T>
 ErlNifResourceType* resource<T>::resource_type = nullptr;
+}

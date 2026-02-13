@@ -1,7 +1,9 @@
 #include "src/expp.hpp"
 #include "src/stl.hpp"
 #include <erl_nif.h>
+
 using namespace std;
+using namespace expp;
 
 
 vector<int> vector_times_int(vector<int> v, int i)
@@ -47,17 +49,9 @@ std::expected<int, string> times5(int i)
     return i * 5;
 }
 
+
 variant<int, string> variant_int_and_string(variant<int, string> v)
 {
-    // template for (const auto& val : v)
-    // {
-    //     using T = std::decay_t<decltype(arg)>;
-    //     if constexpr (std::is_same_v<T, int>)
-    //         return variant<int, string>(arg * 5);
-    //     else
-    //         return variant<int, string>(arg + arg);
-    // }
-
     return std::visit(
         [](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
@@ -135,7 +129,7 @@ atom atom_returns(int i)
 }
 
 
-cppcoro::generator<optional<pair<int, int>>> simple_coroutine(int n)
+yielding<pair<int, int>> simple_coroutine(int n)
 {
     for (int i = 0; i < n; i++)
     {
@@ -219,6 +213,12 @@ binary binary_identity(binary b)
 }
 
 
+term term_identity(term t)
+{
+    return t;
+}
+
+
 int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 {
     yielding_resource_t::init(env, "yielding_generator");
@@ -257,4 +257,5 @@ MODULE(
     def(use_resource, DirtyFlags::NotDirty),
     def(throw_error, DirtyFlags::NotDirty),
     def(dirty_cpu_test, DirtyFlags::DirtyCpu),
-    def(binary_identity, DirtyFlags::NotDirty), )
+    def(binary_identity, DirtyFlags::NotDirty),
+    def(term_identity, DirtyFlags::NotDirty), )

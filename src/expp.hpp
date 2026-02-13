@@ -10,6 +10,8 @@
 #include <utility>
 
 
+namespace expp
+{
 template <typename T>
 struct function_traits;
 
@@ -104,7 +106,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     }
     catch (const std::invalid_argument& e)
     {
-        return enif_make_badarg(env);
+        return exceptions::raise_argument_error(env, e.what());
     }
     catch (const erl_error_base& e)
     {
@@ -112,8 +114,11 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     }
     catch (const std::exception& e)
     {
-        auto reason = type_cast<std::string>::to_term(env, e.what());
-        return enif_raise_exception(env, reason);
+        return exceptions::raise_runtime_error(env, e.what());
+    }
+    catch (...)
+    {
+        return exceptions::raise_runtime_error(env, "unknown exception");
     }
 }
 
@@ -137,6 +142,7 @@ consteval ErlNifFunc def_impl(const char* name)
     };
     return entry;
 }
+}
 
 
 /*
@@ -147,8 +153,8 @@ We want to be able to write:
     def(add, "add)
     def(add)  // defaults to using the same name as the function
 */
-#define DEF2(fn, dirty_flag) def_impl<fn, dirty_flag>(#fn)
-#define DEF3(fn, name, dirty_flag) def_impl<fn, dirty_flag>(name)
+#define DEF2(fn, dirty_flag) expp::def_impl<fn, dirty_flag>(#fn)
+#define DEF3(fn, name, dirty_flag) expp::def_impl<fn, dirty_flag>(name)
 #define GET_MACRO(_1, _2, _3, NAME, ...) NAME
 #define def(...) GET_MACRO(__VA_ARGS__, DEF3, DEF2, UNUSED)(__VA_ARGS__)
 

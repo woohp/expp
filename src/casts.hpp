@@ -15,6 +15,9 @@
 #include <tuple>
 #include <variant>
 
+
+namespace expp
+{
 using namespace std::literals::string_view_literals;
 
 
@@ -22,6 +25,32 @@ template <typename T>
 concept type_castable = requires(T t) {
     { type_cast<T>::to_term(nullptr, t) } -> std::same_as<ERL_NIF_TERM>;
     { type_cast<T>::from_term(nullptr, static_cast<ERL_NIF_TERM>(0)) } -> std::convertible_to<T>;
+};
+
+
+struct term
+{
+    ERL_NIF_TERM value;
+
+    operator ERL_NIF_TERM() const
+    {
+        return value;
+    }
+};
+
+
+template <>
+struct type_cast<term>
+{
+    static term from_term(ErlNifEnv*, ERL_NIF_TERM t)
+    {
+        return term { t };
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv*, term t)
+    {
+        return t.value;
+    }
 };
 
 
@@ -397,3 +426,4 @@ struct type_cast<resource<T>>
         return enif_make_resource(env, res.objp);
     }
 };
+}

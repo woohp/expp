@@ -6,10 +6,36 @@
 #include <vector>
 
 
+namespace expp
+{
 template <typename T>
 concept InnerType = (std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>)
     && (type_castable<T> || std::is_same_v<T, std::byte>);
 
+
+template <class F>
+class scope_exit
+{
+    F f;
+
+public:
+    explicit scope_exit(F&& f)
+        : f(std::forward<F>(f))
+    { }
+
+    scope_exit(scope_exit&& other) = delete;
+
+    ~scope_exit()
+    {
+        f();
+    }
+
+    scope_exit(const scope_exit&) = delete;
+    scope_exit& operator=(const scope_exit&) = delete;
+};
+
+template <class F>
+scope_exit(F) -> scope_exit<F>;
 
 template <InnerType T>
 struct type_cast<std::vector<T>>
@@ -61,7 +87,6 @@ public:
         }
         else
         {
-            // Build the list in reverse to avoid a temporary allocation
             ERL_NIF_TERM list = enif_make_list(env, 0);
             for (auto it = items.rbegin(); it != items.rend(); ++it)
                 list = enif_make_list_cell(env, type_cast<item_type>::to_term(env, *it), list);
@@ -92,6 +117,8 @@ public:
         if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
             throw std::invalid_argument("invalid map");
 
+        auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
+
         ERL_NIF_TERM key, value;
         while (enif_map_iterator_get_pair(env, &iter, &key, &value))
         {
@@ -99,7 +126,6 @@ public:
             enif_map_iterator_next(env, &iter);
         }
 
-        enif_map_iterator_destroy(env, &iter);
         return _map;
     }
 
@@ -143,6 +169,8 @@ public:
         if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
             throw std::invalid_argument("invalid map");
 
+        auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
+
         ERL_NIF_TERM key, value;
         while (enif_map_iterator_get_pair(env, &iter, &key, &value))
         {
@@ -150,7 +178,6 @@ public:
             enif_map_iterator_next(env, &iter);
         }
 
-        enif_map_iterator_destroy(env, &iter);
         return _map;
     }
 
@@ -172,3 +199,4 @@ public:
         return map_term;
     }
 };
+}
