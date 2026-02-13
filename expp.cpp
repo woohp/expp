@@ -1,6 +1,4 @@
-#include "src/expp.hpp"
-#include "src/stl.hpp"
-#include <erl_nif.h>
+#include "expp.hpp"
 
 using namespace std;
 using namespace expp;
