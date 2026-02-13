@@ -22,4 +22,13 @@ defmodule MyMod do
   def atom_arguments(_a), do: "NIF library not loaded"
   def atom_returns(_i), do: "NIF library not loaded"
   def simple_coroutine(_i), do: "NIF library not loaded"
+  def nested_vector(_v), do: "NIF library not loaded"
+  def ordered_map_test(_m), do: "NIF library not loaded"
+  def complex_nested_map(_m), do: "NIF library not loaded"
+  def byte_vector_test(_v), do: "NIF library not loaded"
+  def make_resource(_i), do: "NIF library not loaded"
+  def use_resource(_r), do: "NIF library not loaded"
+  def throw_error(_i), do: "NIF library not loaded"
+  def dirty_cpu_test(_i), do: "NIF library not loaded"
+  def binary_identity(_b), do: "NIF library not loaded"
 end

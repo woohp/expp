@@ -1,5 +1,6 @@
 #pragma once
 #include "atom.hpp"
+#include "casts.hpp"
 #include <erl_nif.h>
 #include <stdexcept>
 #include <tuple>
@@ -25,6 +26,6 @@ struct erl_error : erl_error_base
     ERL_NIF_TERM get_term(ErlNifEnv* env) const
     {
         using error_type = std::tuple<atom, std::decay_t<T>>;
-        return type_cast<error_type>::handle(env, error_type("error"_atom, error_value));
+        return type_cast<error_type>::to_term(env, error_type("error"_atom, error_value));
     }
 };

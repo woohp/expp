@@ -49,6 +49,15 @@ std::expected<int, string> times5(int i)
 
 variant<int, string> variant_int_and_string(variant<int, string> v)
 {
+    // template for (const auto& val : v)
+    // {
+    //     using T = std::decay_t<decltype(arg)>;
+    //     if constexpr (std::is_same_v<T, int>)
+    //         return variant<int, string>(arg * 5);
+    //     else
+    //         return variant<int, string>(arg + arg);
+    // }
+
     return std::visit(
         [](auto&& arg) {
             using T = std::decay_t<decltype(arg)>;
@@ -138,9 +147,82 @@ cppcoro::generator<optional<pair<int, int>>> simple_coroutine(int n)
 }
 
 
+vector<vector<int>> nested_vector(vector<vector<int>> v)
+{
+    for (auto& inner : v)
+        for (auto& x : inner)
+            x *= 2;
+    return v;
+}
+
+
+std::map<string, int> ordered_map_test(std::map<string, int> m)
+{
+    return m;
+}
+
+
+std::map<string, vector<int>> complex_nested_map(std::map<string, vector<int>> m)
+{
+    for (auto& [k, v] : m)
+        for (auto& x : v)
+            x *= 2;
+    return m;
+}
+
+
+vector<std::byte> byte_vector_test(vector<std::byte> v)
+{
+    for (auto& b : v)
+        b = std::byte { static_cast<unsigned char>(static_cast<unsigned char>(b) + 1) };
+    return v;
+}
+
+
+struct MyResource
+{
+    int value;
+};
+
+
+resource<MyResource> make_resource(int i)
+{
+    return resource<MyResource>::alloc(i);
+}
+
+
+int use_resource(resource<MyResource> res)
+{
+    return res.get().value;
+}
+
+
+int throw_error(int i)
+{
+    if (i == 0)
+        throw erl_error<string>("some error");
+    if (i == 1)
+        throw erl_error<int>(42);
+    return i;
+}
+
+
+int dirty_cpu_test(int i)
+{
+    return i * 10;
+}
+
+
+binary binary_identity(binary b)
+{
+    return b;
+}
+
+
 int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 {
     yielding_resource_t::init(env, "yielding_generator");
+    resource<MyResource>::init(env, "MyResource");
     return 0;
 }
 
@@ -166,4 +248,13 @@ MODULE(
     def(get_expected_stringview_error, DirtyFlags::NotDirty),
     def(atom_arguments, DirtyFlags::NotDirty),
     def(atom_returns, DirtyFlags::NotDirty),
-    def(simple_coroutine, DirtyFlags::NotDirty), )
+    def(simple_coroutine, DirtyFlags::NotDirty),
+    def(nested_vector, DirtyFlags::NotDirty),
+    def(ordered_map_test, DirtyFlags::NotDirty),
+    def(complex_nested_map, DirtyFlags::NotDirty),
+    def(byte_vector_test, DirtyFlags::NotDirty),
+    def(make_resource, DirtyFlags::NotDirty),
+    def(use_resource, DirtyFlags::NotDirty),
+    def(throw_error, DirtyFlags::NotDirty),
+    def(dirty_cpu_test, DirtyFlags::DirtyCpu),
+    def(binary_identity, DirtyFlags::NotDirty), )

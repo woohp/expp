@@ -1,6 +1,10 @@
 #pragma once
+#include "casts.hpp"
+#include "ext_types.hpp"
 #include "generator.hpp"
+#include "resource.hpp"
 #include <chrono>
+#include <memory>
 
 
 // A yielding type is a generator that returns an optional of the underlying type.
@@ -46,4 +50,46 @@ struct yielding_timer
 };
 
 
-using yielding_resource_t = resource<yielding<int>>;
+// Type-erased base for yielding coroutine resources, enabling virtual dispatch
+// instead of type-punning through resource<yielding<int>>.
+struct yielding_resource_base
+{
+    virtual ~yielding_resource_base() = default;
+    virtual ERL_NIF_TERM step(ErlNifEnv* env) = 0;
+};
+
+
+template <typename GeneratorType>
+struct yielding_resource_impl : yielding_resource_base
+{
+    GeneratorType coro;
+
+    explicit yielding_resource_impl(GeneratorType&& c)
+        : coro(std::move(c))
+    { }
+
+    ERL_NIF_TERM step(ErlNifEnv* env) override
+    {
+        try
+        {
+            if (const auto& out = *std::begin(coro); out)
+            {
+                return type_cast<std::decay_t<decltype(*out)>>::to_term(env, *out);
+            }
+            else
+                return 0;  // indicates that it needs to be scheduled for another step
+        }
+        catch (const erl_error_base& e)
+        {
+            return e.get_term(env);
+        }
+        catch (const std::exception& e)
+        {
+            auto reason = type_cast<std::string>::to_term(env, e.what());
+            return enif_raise_exception(env, reason);
+        }
+    }
+};
+
+
+using yielding_resource_t = resource<std::unique_ptr<yielding_resource_base>>;

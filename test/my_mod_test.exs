@@ -106,4 +106,65 @@ defmodule MyModTest do
   test "coroutines" do
     assert MyMod.simple_coroutine(5) == {4, 16}
   end
+
+  test "nested vector" do
+    assert MyMod.nested_vector([[1, 2], [3, 4]]) == [[2, 4], [6, 8]]
+  end
+
+  test "ordered map" do
+    m = %{"a" => 1, "b" => 2, "c" => 3}
+    assert MyMod.ordered_map_test(m) == m
+  end
+
+  test "complex nested map" do
+    m = %{"a" => [1, 2], "b" => [3, 4]}
+    assert MyMod.complex_nested_map(m) == %{"a" => [2, 4], "b" => [6, 8]}
+  end
+
+  test "byte vector" do
+    # "ABC" is [65, 66, 67], plus one is [66, 67, 68] which is "BCD"
+    assert MyMod.byte_vector_test("ABC") == "BCD"
+  end
+
+  test "resources" do
+    res = MyMod.make_resource(123)
+    assert is_reference(res)
+    assert MyMod.use_resource(res) == 123
+  end
+
+  test "handle erl_error" do
+    assert MyMod.throw_error(10) == 10
+    assert MyMod.throw_error(0) == {:error, "some error"}
+    assert MyMod.throw_error(1) == {:error, 42}
+  end
+
+  test "dirty cpu nif" do
+    assert MyMod.dirty_cpu_test(5) == 50
+  end
+
+  test "binary identity" do
+    assert MyMod.binary_identity("hello") == "hello"
+  end
+
+  test "empty list and map" do
+    assert MyMod.vector_times_int([], 2) == []
+    assert MyMod.times2(%{}) == %{}
+  end
+
+  test "large map performance and correctness" do
+    size = 1000
+    map = for i <- 1..size, into: %{}, do: {i, i}
+    expected = for i <- 1..size, into: %{}, do: {i, i * i}
+    assert MyMod.times2(map) == expected
+  end
+
+  test "tuple arity mismatch" do
+    assert_raise ArgumentError, fn ->
+      MyMod.times4({1, 2})
+    end
+
+    assert_raise ArgumentError, fn ->
+      MyMod.times4({1, 2, 3, 4})
+    end
+  end
 end

@@ -13,6 +13,7 @@ class resource
     ErlNifEnv* env;
     ERL_NIF_TERM term;
     void* objp;
+    bool owns_;
 
     friend struct type_cast<resource<T>>;
 
@@ -20,19 +21,36 @@ class resource
         : env(env)
         , term(term)
         , objp(nullptr)
+        , owns_(false)
     { }
 
     resource(T* objp)
         : env(nullptr)
         , term(0)
         , objp(objp)
+        , owns_(true)
     { }
 
 public:
     typedef T type;
 
     resource(const resource<T>&) = delete;
-    resource(resource<T>&&) = default;
+
+    resource(resource<T>&& other)
+        : env(other.env)
+        , term(other.term)
+        , objp(other.objp)
+        , owns_(other.owns_)
+    {
+        other.objp = nullptr;
+        other.owns_ = false;
+    }
+
+    ~resource()
+    {
+        if (owns_ && objp)
+            enif_release_resource(objp);
+    }
 
     template <typename U = T>
     U& get()

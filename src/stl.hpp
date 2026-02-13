@@ -18,7 +18,7 @@ private:
     typedef std::decay_t<T> item_type;
 
 public:
-    constexpr static std::vector<T> load(ErlNifEnv* env, const ERL_NIF_TERM term)
+    constexpr static std::vector<T> from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
     {
         if constexpr ((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
         {
@@ -42,7 +42,7 @@ public:
             {
                 ERL_NIF_TERM head, tail;
                 enif_get_list_cell(env, list_term, &head, &tail);
-                items.push_back(type_cast<item_type>::load(env, head));
+                items.push_back(type_cast<item_type>::from_term(env, head));
                 list_term = tail;
             }
 
@@ -50,24 +50,22 @@ public:
         }
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const std::vector<T>& items) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::vector<T>& items) noexcept
     {
         if constexpr ((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
         {
             ErlNifBinary binary_info;
             enif_alloc_binary(items.size(), &binary_info);
-            std::copy_n(items.data(), items.size(), binary_info.data);
+            std::copy_n(reinterpret_cast<const unsigned char*>(items.data()), items.size(), binary_info.data);
             return enif_make_binary(env, &binary_info);
         }
         else
         {
-            std::vector<ERL_NIF_TERM> nif_terms;
-            nif_terms.reserve(items.size());
-
-            for (const auto& item : items)
-                nif_terms.push_back(type_cast<item_type>::handle(env, item));
-
-            return enif_make_list_from_array(env, nif_terms.data(), nif_terms.size());
+            // Build the list in reverse to avoid a temporary allocation
+            ERL_NIF_TERM list = enif_make_list(env, 0);
+            for (auto it = items.rbegin(); it != items.rend(); ++it)
+                list = enif_make_list_cell(env, type_cast<item_type>::to_term(env, *it), list);
+            return list;
         }
     }
 };
@@ -82,7 +80,7 @@ private:
     typedef std::unordered_map<key_type, value_type> map_type;
 
 public:
-    constexpr static map_type load(ErlNifEnv* env, const ERL_NIF_TERM term)
+    constexpr static map_type from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
     {
         map_type _map;
         std::size_t size;
@@ -97,26 +95,29 @@ public:
         ERL_NIF_TERM key, value;
         while (enif_map_iterator_get_pair(env, &iter, &key, &value))
         {
-            _map.emplace(type_cast<key_type>::load(env, key), type_cast<value_type>::load(env, value));
+            _map.emplace(type_cast<key_type>::from_term(env, key), type_cast<value_type>::from_term(env, value));
             enif_map_iterator_next(env, &iter);
         }
 
+        enif_map_iterator_destroy(env, &iter);
         return _map;
     }
 
-    constexpr static ERL_NIF_TERM handle(ErlNifEnv* env, const map_type& _map) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map) noexcept
     {
-        ERL_NIF_TERM map_term = enif_make_new_map(env);
+        std::vector<ERL_NIF_TERM> keys;
+        std::vector<ERL_NIF_TERM> values;
+        keys.reserve(_map.size());
+        values.reserve(_map.size());
 
         for (const auto& item : _map)
         {
-            ERL_NIF_TERM new_map_term;
-            ERL_NIF_TERM key_term = type_cast<key_type>::handle(env, item.first);
-            ERL_NIF_TERM value_term = type_cast<value_type>::handle(env, item.second);
-            enif_make_map_put(env, map_term, key_term, value_term, &new_map_term);
-            map_term = new_map_term;
+            keys.push_back(type_cast<key_type>::to_term(env, item.first));
+            values.push_back(type_cast<value_type>::to_term(env, item.second));
         }
 
+        ERL_NIF_TERM map_term;
+        enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term);
         return map_term;
     }
 };
@@ -131,13 +132,12 @@ private:
     typedef std::map<key_type, value_type> map_type;
 
 public:
-    constexpr static map_type load(ErlNifEnv* env, const ERL_NIF_TERM term)
+    constexpr static map_type from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
     {
         map_type _map;
         std::size_t size;
         if (!enif_get_map_size(env, term, &size))
             throw std::invalid_argument("invalid map");
-        _map.reserve(size);
 
         ErlNifMapIterator iter;
         if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
@@ -146,26 +146,29 @@ public:
         ERL_NIF_TERM key, value;
         while (enif_map_iterator_get_pair(env, &iter, &key, &value))
         {
-            _map.emplace(type_cast<key_type>::load(env, key), type_cast<value_type>::load(env, value));
+            _map.emplace(type_cast<key_type>::from_term(env, key), type_cast<value_type>::from_term(env, value));
             enif_map_iterator_next(env, &iter);
         }
 
+        enif_map_iterator_destroy(env, &iter);
         return _map;
     }
 
-    constexpr static ERL_NIF_TERM handle(ErlNifEnv* env, const map_type& _map) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map) noexcept
     {
-        ERL_NIF_TERM map_term = enif_make_new_map(env);
+        std::vector<ERL_NIF_TERM> keys;
+        std::vector<ERL_NIF_TERM> values;
+        keys.reserve(_map.size());
+        values.reserve(_map.size());
 
         for (const auto& item : _map)
         {
-            ERL_NIF_TERM new_map_term;
-            ERL_NIF_TERM key_term = type_cast<key_type>::handle(env, item.first);
-            ERL_NIF_TERM value_term = type_cast<value_type>::handle(env, item.second);
-            enif_make_map_put(env, map_term, key_term, value_term, &new_map_term);
-            map_term = new_map_term;
+            keys.push_back(type_cast<key_type>::to_term(env, item.first));
+            values.push_back(type_cast<value_type>::to_term(env, item.second));
         }
 
+        ERL_NIF_TERM map_term;
+        enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term);
         return map_term;
     }
 };

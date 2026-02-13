@@ -5,6 +5,7 @@
 #include "resource.hpp"
 #include "yielding.hpp"
 #include <erl_nif.h>
+#include <memory>
 #include <optional>
 #include <utility>
 
@@ -22,7 +23,7 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     template <func_type fn, std::size_t... I>
     constexpr static R apply_impl(ErlNifEnv* env, const ERL_NIF_TERM argv[], std::index_sequence<I...>)
     {
-        return fn(type_cast<std::decay_t<Args>>::load(env, argv[I])...);
+        return fn(type_cast<std::decay_t<Args>>::from_term(env, argv[I])...);
     }
 
     template <func_type fn>
@@ -44,43 +45,15 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
 };
 
 
-template <typename GeneratorType>
-    requires(is_yielding_v<GeneratorType>)
-ERL_NIF_TERM coroutine_step_impl(GeneratorType& coro, ErlNifEnv* env)
+inline ERL_NIF_TERM coroutine_step(ErlNifEnv* env, int, const ERL_NIF_TERM argv[])
 {
-    try
-    {
-        if (const auto& out = *std::begin(coro); out)
-        {
-            auto ret = type_cast<std::decay_t<decltype(*out)>>::handle(env, *out);
-            return ret;
-        }
-        else
-            return 0;  // slightly hacky, indicates that it needs to be scheduled for another step
-    }
-    catch (const erl_error_base& e)
-    {
-        return e.get_term(env);
-    }
-    catch (const std::exception& e)
-    {
-        auto reason = type_cast<std::string>::handle(env, e.what());
-        return enif_raise_exception(env, reason);
-    }
-}
+    auto coroutine_resource = type_cast<yielding_resource_t>::from_term(env, argv[0]);
+    auto& impl_ptr = coroutine_resource.get();
 
-
-template <typename GeneratorType>
-    requires(is_yielding_v<GeneratorType>)
-ERL_NIF_TERM coroutine_step(ErlNifEnv* env, int, const ERL_NIF_TERM argv[])
-{
-    auto coroutine_resource = type_cast<yielding_resource_t>::load(env, argv[0]);
-    auto& coro = coroutine_resource.get<GeneratorType>();
-
-    if (ERL_NIF_TERM step_result = coroutine_step_impl(coro, env); step_result)
+    if (ERL_NIF_TERM step_result = impl_ptr->step(env); step_result)
         return step_result;
     else
-        return enif_schedule_nif(env, "coroutine_step", 0, coroutine_step<GeneratorType>, 1, argv);
+        return enif_schedule_nif(env, "coroutine_step", 0, coroutine_step, 1, argv);
 }
 
 
@@ -109,21 +82,24 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                 !func_traits::template any_args_has_type<binary>(),
                 "generator functions cannot have arguments of type binary");
 
-            // try to step the generator one time
-            if (auto step_output = coroutine_step_impl(ret, env); step_output)
+            // Wrap the generator in a type-erased impl
+            auto impl = std::make_unique<yielding_resource_impl<return_type>>(std::move(ret));
+
+            // Try to step the generator one time
+            if (auto step_output = impl->step(env); step_output)
                 return step_output;
             else
             {
-                // allocate a new resource for the generator and schedule it for execution later
-                void* buf = enif_alloc_resource(yielding_resource_t::resource_type, sizeof(ret));
-                new (buf) decltype(ret) { std::move(ret) };
-                ERL_NIF_TERM out[] = { enif_make_resource(env, buf) };
-                return enif_schedule_nif(env, "coroutine_step", 0, coroutine_step<return_type>, 1, out);
+                // Allocate a resource for the generator and schedule it for later execution
+                auto res = yielding_resource_t::alloc(std::move(impl));
+                ERL_NIF_TERM resource_term = type_cast<yielding_resource_t>::to_term(env, res);
+                ERL_NIF_TERM out[] = { resource_term };
+                return enif_schedule_nif(env, "coroutine_step", 0, coroutine_step, 1, out);
             }
         }
         else
         {
-            return type_cast<std::decay_t<decltype(ret)>>::handle(env, std::move(ret));
+            return type_cast<std::decay_t<decltype(ret)>>::to_term(env, std::move(ret));
         }
     }
     catch (const std::invalid_argument& e)
@@ -136,7 +112,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     }
     catch (const std::exception& e)
     {
-        auto reason = type_cast<std::string>::handle(env, e.what());
+        auto reason = type_cast<std::string>::to_term(env, e.what());
         return enif_raise_exception(env, reason);
     }
 }
