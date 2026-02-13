@@ -1,10 +1,7 @@
 #pragma once
+#include "type_cast_fwd.hpp"
 #include <algorithm>
 #include <erl_nif.h>
-
-
-template <typename T>
-struct type_cast;
 
 
 class binary : public ErlNifBinary
@@ -37,7 +34,13 @@ public:
 
     binary(binary&& other)
     {
-        this->operator=(std::move(other));
+        // No old data to release in a freshly constructed object
+        static_cast<ErlNifBinary&>(*this) = static_cast<const ErlNifBinary&>(other);
+        _term = other._term;
+
+        other.data = nullptr;
+        other.size = 0;
+        other._term = 0;
     }
 
     binary(const binary& other) = delete;
@@ -54,18 +57,26 @@ public:
 
     binary& operator=(binary&& other)
     {
-        *this = other;
+        if (this != &other)
+        {
+            // Release our current binary data if we own it
+            if (!_term && data)
+                enif_release_binary(this);
 
-        other.size = 0;
-        other.data = nullptr;
-        other._term = 0;
+            // Transfer all fields from other
+            static_cast<ErlNifBinary&>(*this) = static_cast<const ErlNifBinary&>(other);
+            _term = other._term;
 
+            other.data = nullptr;
+            other.size = 0;
+            other._term = 0;
+        }
         return *this;
     }
 };
 
 
-binary operator""_binary(const char* s, std::size_t len)
+inline binary operator""_binary(const char* s, std::size_t len)
 {
     binary binary_info;
     enif_alloc_binary(len, &binary_info);

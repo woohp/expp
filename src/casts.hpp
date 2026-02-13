@@ -1,8 +1,8 @@
 #pragma once
 #include "atom.hpp"
 #include "binary.hpp"
-#include "ext_types.hpp"
 #include "resource.hpp"
+#include "type_cast_fwd.hpp"
 #include <algorithm>
 #include <concepts>
 #include <cstdint>
@@ -19,20 +19,16 @@ using namespace std::literals::string_view_literals;
 
 
 template <typename T>
-struct type_cast;
-
-
-template <typename T>
 concept type_castable = requires(T t) {
-    { type_cast<T>::handle(nullptr, t) } -> std::same_as<ERL_NIF_TERM>;
-    { type_cast<T>::load(nullptr, static_cast<ERL_NIF_TERM>(0)) } -> std::convertible_to<T>;
+    { type_cast<T>::to_term(nullptr, t) } -> std::same_as<ERL_NIF_TERM>;
+    { type_cast<T>::from_term(nullptr, static_cast<ERL_NIF_TERM>(0)) } -> std::convertible_to<T>;
 };
 
 
 template <std::integral T>
 struct type_cast<T>
 {
-    static T load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static T from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         if constexpr (std::is_signed_v<T>)
         {
@@ -70,7 +66,7 @@ struct type_cast<T>
         }
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, T i) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, T i) noexcept
     {
         if constexpr (std::is_signed_v<T>)
         {
@@ -93,7 +89,7 @@ struct type_cast<T>
 template <std::floating_point T>
 struct type_cast<T>
 {
-    static T load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static T from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         double d;
         if (!enif_get_double(env, term, &d))
@@ -101,17 +97,19 @@ struct type_cast<T>
         return static_cast<T>(d);
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, T d) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, T d) noexcept
     {
         return enif_make_double(env, static_cast<double>(d));
     }
 };
 
 
+// Note: from_term always copies from the binary data into a new std::string.
+// For read-only access without copying, prefer std::string_view.
 template <>
 struct type_cast<std::string>
 {
-    static std::string load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static std::string from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         ErlNifBinary binary_info;
         if (!enif_inspect_binary(env, term, &binary_info))
@@ -119,7 +117,7 @@ struct type_cast<std::string>
         return std::string(reinterpret_cast<const char*>(binary_info.data), binary_info.size);
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const std::string& s)
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string& s)
     {
         ErlNifBinary binary_info;
         enif_alloc_binary(s.size(), &binary_info);
@@ -132,7 +130,7 @@ struct type_cast<std::string>
 template <>
 struct type_cast<std::string_view>
 {
-    static std::string_view load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static std::string_view from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         ErlNifBinary binary_info;
         if (!enif_inspect_binary(env, term, &binary_info))
@@ -140,7 +138,7 @@ struct type_cast<std::string_view>
         return std::string_view(reinterpret_cast<const char*>(binary_info.data), binary_info.size);
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const std::string_view s)
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string_view s)
     {
         ErlNifBinary binary_info;
         enif_alloc_binary(s.size(), &binary_info);
@@ -153,7 +151,7 @@ struct type_cast<std::string_view>
 template <>
 struct type_cast<binary>
 {
-    static binary load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static binary from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         binary b;
         if (!enif_inspect_binary(env, term, &b))
@@ -162,7 +160,7 @@ struct type_cast<binary>
         return b;
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const binary& b) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const binary& b) noexcept
     {
         if (b._term)
             return b._term;
@@ -178,7 +176,7 @@ struct type_cast<binary>
 template <>
 struct type_cast<atom>
 {
-    static atom load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static atom from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         unsigned len;
         if (!enif_get_atom_length(env, term, &len, ERL_NIF_LATIN1))
@@ -191,12 +189,12 @@ struct type_cast<atom>
         return atom { s };
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const atom& a) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const atom& a) noexcept
     {
         return enif_make_atom_len(env, a.name.data(), a.name.length());
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const std::string_view& s) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string_view& s) noexcept
     {
         return enif_make_atom_len(env, s.data(), s.length());
     }
@@ -206,7 +204,7 @@ struct type_cast<atom>
 template <>
 struct type_cast<bool>
 {
-    static bool load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static bool from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         char buf[8];
         std::size_t bytes_read = enif_get_atom(env, term, buf, 8, ERL_NIF_LATIN1);
@@ -222,14 +220,14 @@ struct type_cast<bool>
             throw std::invalid_argument("not boolean");
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, bool b) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, bool b) noexcept
     {
-        static ERL_NIF_TERM true_atom_term = type_cast<atom>::handle(env, "true"sv);
-        static ERL_NIF_TERM false_atom_term = type_cast<atom>::handle(env, "false"sv);
+        // enif_make_atom is internally interned by the VM, so calling it each
+        // time is cheap and avoids caching ERL_NIF_TERMs across environments.
         if (b)
-            return true_atom_term;
+            return enif_make_atom(env, "true");
         else
-            return false_atom_term;
+            return enif_make_atom(env, "false");
     }
 };
 
@@ -237,7 +235,7 @@ struct type_cast<bool>
 template <typename X, typename Y>
 struct type_cast<std::pair<X, Y>>
 {
-    constexpr static std::pair<X, Y> load(ErlNifEnv* env, ERL_NIF_TERM term)
+    constexpr static std::pair<X, Y> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         const ERL_NIF_TERM* tup_array = nullptr;
         int arity;
@@ -245,12 +243,12 @@ struct type_cast<std::pair<X, Y>>
             throw std::invalid_argument("invalid pair");
         if (arity != 2)
             throw std::invalid_argument("invalid pair");
-        return std::pair<X, Y>(type_cast<X>::load(env, tup_array[0]), type_cast<Y>::load(env, tup_array[1]));
+        return std::pair<X, Y>(type_cast<X>::from_term(env, tup_array[0]), type_cast<Y>::from_term(env, tup_array[1]));
     }
 
-    constexpr static ERL_NIF_TERM handle(ErlNifEnv* env, const std::pair<X, Y>& item) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::pair<X, Y>& item) noexcept
     {
-        return enif_make_tuple2(env, type_cast<X>::handle(env, item.first), type_cast<Y>::handle(env, item.second));
+        return enif_make_tuple2(env, type_cast<X>::to_term(env, item.first), type_cast<Y>::to_term(env, item.second));
     }
 };
 
@@ -262,32 +260,34 @@ private:
     typedef std::tuple<Args...> tuple_type;
 
     template <std::size_t... I>
-    constexpr static tuple_type load_impl(ErlNifEnv* env, const ERL_NIF_TERM* tup_array, std::index_sequence<I...>)
+    constexpr static tuple_type from_term_impl(ErlNifEnv* env, const ERL_NIF_TERM* tup_array, std::index_sequence<I...>)
     {
-        return tuple_type(type_cast<std::decay_t<Args>>::load(env, tup_array[I])...);
+        return tuple_type(type_cast<std::decay_t<Args>>::from_term(env, tup_array[I])...);
     }
 
     template <std::size_t... I>
     constexpr static ERL_NIF_TERM
-    handle_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
+    to_term_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
     {
         return enif_make_tuple(
-            env, std::tuple_size_v<tuple_type>, type_cast<std::decay_t<Args>>::handle(env, std::get<I>(items))...);
+            env, std::tuple_size_v<tuple_type>, type_cast<std::decay_t<Args>>::to_term(env, std::get<I>(items))...);
     }
 
 public:
-    static tuple_type load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static tuple_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         const ERL_NIF_TERM* tup_array;
         int arity;
         if (!enif_get_tuple(env, term, &arity, &tup_array))
             throw std::invalid_argument("invalid tuple");
-        return load_impl(env, tup_array, std::index_sequence_for<Args...> {});
+        if (arity != static_cast<int>(sizeof...(Args)))
+            throw std::invalid_argument("invalid tuple arity");
+        return from_term_impl(env, tup_array, std::index_sequence_for<Args...> {});
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const tuple_type& items) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const tuple_type& items) noexcept
     {
-        return handle_impl(env, items, std::index_sequence_for<Args...> {});
+        return to_term_impl(env, items, std::index_sequence_for<Args...> {});
     }
 };
 
@@ -299,33 +299,33 @@ private:
     typedef std::variant<Args...> variant_type;
 
     template <int I, typename T, typename... Rest>
-    constexpr static variant_type load_impl(ErlNifEnv* env, ERL_NIF_TERM term)
+    constexpr static variant_type from_term_impl(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         try
         {
-            return variant_type(std::in_place_index<I>, type_cast<T>::load(env, term));
+            return variant_type(std::in_place_index<I>, type_cast<T>::from_term(env, term));
         }
         catch (const std::invalid_argument&)
         {
             if constexpr (sizeof...(Rest) == 0)
                 throw std::invalid_argument("invalid argument");
             else
-                return type_cast<variant_type>::load_impl<I + 1, Rest...>(env, term);
+                return type_cast<variant_type>::from_term_impl<I + 1, Rest...>(env, term);
         }
     }
 
 public:
-    constexpr static variant_type load(ErlNifEnv* env, ERL_NIF_TERM term)
+    constexpr static variant_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return type_cast<std::variant<Args...>>::load_impl<0, Args...>(env, term);
+        return type_cast<std::variant<Args...>>::from_term_impl<0, Args...>(env, term);
     }
 
-    constexpr static ERL_NIF_TERM handle(ErlNifEnv* env, const variant_type& item) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const variant_type& item) noexcept
     {
         return std::visit(
             [env, &item](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
-                return type_cast<T>::handle(env, std::get<T>(item));
+                return type_cast<T>::to_term(env, std::get<T>(item));
             },
             item);
     }
@@ -339,15 +339,12 @@ private:
     typedef std::expected<T, E> expected_type;
 
 public:
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const expected_type& result) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const expected_type& result) noexcept
     {
-        static ERL_NIF_TERM ok_atom_term = type_cast<atom>::handle(env, "ok"sv);
-        static ERL_NIF_TERM error_atom_term = type_cast<atom>::handle(env, "error"sv);
-
         if (result.has_value())
-            return enif_make_tuple2(env, ok_atom_term, type_cast<T>::handle(env, *result));
+            return enif_make_tuple2(env, enif_make_atom(env, "ok"), type_cast<T>::to_term(env, *result));
         else
-            return enif_make_tuple2(env, error_atom_term, type_cast<E>::handle(env, result.error()));
+            return enif_make_tuple2(env, enif_make_atom(env, "error"), type_cast<E>::to_term(env, result.error()));
     };
 };
 
@@ -355,7 +352,7 @@ public:
 template <typename T>
 struct type_cast<std::optional<T>>
 {
-    static std::optional<T> load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static std::optional<T> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         static_assert(!std::is_same_v<T, atom>, "std::optional cannot wrap an atom");
 
@@ -370,19 +367,16 @@ struct type_cast<std::optional<T>>
         }
         else
         {
-            return type_cast<T>::load(env, term);
+            return type_cast<T>::from_term(env, term);
         }
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const std::optional<T>& item)
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::optional<T>& item)
     {
         if (item)
-            return type_cast<T>::handle(env, *item);
+            return type_cast<T>::to_term(env, *item);
         else
-        {
-            static ERL_NIF_TERM nil_atom_term = type_cast<atom>::handle(env, "nil"sv);
-            return nil_atom_term;
-        }
+            return enif_make_atom(env, "nil");
     }
 };
 
@@ -390,15 +384,16 @@ struct type_cast<std::optional<T>>
 template <typename T>
 struct type_cast<resource<T>>
 {
-    static resource<T> load(ErlNifEnv* env, ERL_NIF_TERM term)
+    static resource<T> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         return resource<T> { env, term };
     }
 
-    static ERL_NIF_TERM handle(ErlNifEnv* env, const resource<T>& res)
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const resource<T>& res)
     {
-        const auto term = enif_make_resource(env, res.objp);
-        enif_release_resource(res.objp);
-        return term;
+        // Just create the term — the resource<T> destructor will call
+        // enif_release_resource when the object goes out of scope,
+        // leaving the term as the sole owner of the NIF resource.
+        return enif_make_resource(env, res.objp);
     }
 };

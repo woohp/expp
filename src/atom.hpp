@@ -1,9 +1,6 @@
 #pragma once
+#include "type_cast_fwd.hpp"
 #include <string>
-
-
-template <typename T>
-struct type_cast;
 
 
 struct atom
@@ -46,7 +43,7 @@ public:
 };
 
 
-atom operator""_atom(const char* s, std::size_t len)
+inline atom operator""_atom(const char* s, std::size_t len)
 {
     return atom { s, len };
 }
