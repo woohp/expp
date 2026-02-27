@@ -381,6 +381,15 @@ public:
 
     binary(const binary& other) = delete;
 
+    template <typename T>
+        requires((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
+    static binary from_bytes(const T* data, size_t size)
+    {
+        binary b { size };
+        std::copy_n(data, size, b.data);
+        return b;
+    }
+
     ~binary()
     {
         if (!this->_term && this->data)
