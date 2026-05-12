@@ -56,6 +56,10 @@ struct yielding_timer
 // instead of type-punning through resource<yielding<int>>.
 struct yielding_resource_base
 {
+    // Dirty flag used when rescheduling continuations. Stored here so that
+    // coroutine_step can propagate the same scheduler class as the initial call.
+    int dirty_flags = 0;
+
     virtual ~yielding_resource_base() = default;
     virtual ERL_NIF_TERM step(ErlNifEnv* env) = 0;
 };

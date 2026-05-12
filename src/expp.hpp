@@ -55,11 +55,15 @@ inline ERL_NIF_TERM coroutine_step(ErlNifEnv* env, int, const ERL_NIF_TERM argv[
     if (ERL_NIF_TERM step_result = impl_ptr->step(env); step_result)
         return step_result;
     else
-        return enif_schedule_nif(env, "coroutine_step", 0, coroutine_step, 1, argv);
+        // Propagate the original dirty flag so continuations run on the same
+        // scheduler class as the initial NIF call.
+        return enif_schedule_nif(env, "coroutine_step", impl_ptr->dirty_flags, coroutine_step, 1, argv);
 }
 
 
-template <auto fn>
+// dirty_flags is an int rather than DirtyFlags so that this template can be
+// instantiated before the DirtyFlags enum is defined later in this file.
+template <auto fn, int dirty_flags = 0>
 constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     using func_traits = function_traits<decltype(fn)>;
@@ -84,14 +88,20 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             // Because generator functions can be resumed, they cannot take
             // 1. arguments by reference (the original stack is gone when it's resumed)
             // 2. arguments of type binary (the data pointer might be invalidated when it's resumed)
+            // 3. arguments of type string_view (a borrowed view into binary memory, same hazard as binary)
             static_assert(
                 !func_traits::any_args_by_reference(), "generator functions cannot have pass-by-reference arguments");
             static_assert(
                 !func_traits::template any_args_has_type<binary>(),
                 "generator functions cannot have arguments of type binary");
+            static_assert(
+                !func_traits::template any_args_has_type<std::string_view>(),
+                "generator functions cannot have arguments of type string_view");
 
-            // Wrap the generator in a type-erased impl
+            // Wrap the generator in a type-erased impl and store the dirty flag
+            // so that coroutine_step can propagate it to all future continuations.
             auto impl = std::make_unique<yielding_resource_impl<return_type>>(std::move(ret));
+            impl->dirty_flags = dirty_flags;
 
             // Try to step the generator one time
             if (auto step_output = impl->step(env); step_output)
@@ -102,7 +112,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                 auto res = yielding_resource_t::alloc(std::move(impl));
                 ERL_NIF_TERM resource_term = type_cast<yielding_resource_t>::to_term(env, res);
                 ERL_NIF_TERM out[] = { resource_term };
-                return enif_schedule_nif(env, "coroutine_step", 0, coroutine_step, 1, out);
+                return enif_schedule_nif(env, "coroutine_step", dirty_flags, coroutine_step, 1, out);
             }
         }
         else
@@ -144,7 +154,7 @@ consteval ErlNifFunc def_impl(const char* name)
     ErlNifFunc entry = {
         name,
         function_traits<decltype(fn)>::nargs,
-        wrapper<fn>,
+        wrapper<fn, static_cast<int>(dirty_flag)>,
         static_cast<int>(dirty_flag),
     };
     return entry;
