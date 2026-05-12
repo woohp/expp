@@ -149,7 +149,8 @@ struct type_cast<std::string>
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string& s)
     {
         ErlNifBinary binary_info;
-        enif_alloc_binary(s.size(), &binary_info);
+        if (!enif_alloc_binary(s.size(), &binary_info))
+            throw std::bad_alloc {};
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
     }
@@ -170,7 +171,8 @@ struct type_cast<std::string_view>
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string_view s)
     {
         ErlNifBinary binary_info;
-        enif_alloc_binary(s.size(), &binary_info);
+        if (!enif_alloc_binary(s.size(), &binary_info))
+            throw std::bad_alloc {};
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
     }

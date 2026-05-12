@@ -2,6 +2,7 @@
 #include "type_cast_fwd.hpp"
 #include <algorithm>
 #include <erl_nif.h>
+#include <new>
 
 
 namespace expp
@@ -24,13 +25,15 @@ public:
 
     explicit binary(size_t size)
     {
-        enif_alloc_binary(size, this);
+        if (!enif_alloc_binary(size, this))
+            throw std::bad_alloc {};
     }
 
     template <size_t N>
     explicit binary(const char (&str)[N])
     {
-        enif_alloc_binary(N - 1, this);
+        if (!enif_alloc_binary(N - 1, this))
+            throw std::bad_alloc {};
         std::copy_n(str, N - 1, this->data);
     }
 
@@ -89,8 +92,7 @@ public:
 
 inline binary operator""_binary(const char* s, std::size_t len)
 {
-    binary binary_info;
-    enif_alloc_binary(len, &binary_info);
+    binary binary_info { len };  // constructor checks allocation and throws on failure
     std::copy_n(s, len, binary_info.data);
     return binary_info;
 }
