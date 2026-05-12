@@ -1,5 +1,8 @@
 #pragma once
 #include <erl_nif.h>
+#include <new>
+#include <stdexcept>
+#include <string>
 
 
 namespace expp
@@ -67,6 +70,8 @@ public:
     static resource<T> alloc(Args&&... args)
     {
         void* buf = enif_alloc_resource(resource<T>::resource_type, sizeof(T));
+        if (!buf)
+            throw std::bad_alloc {};
         return resource<T> { new (buf) T { std::forward<Args>(args)... } };
     }
 
@@ -74,6 +79,8 @@ public:
     {
         resource<T>::resource_type
             = enif_open_resource_type(env, nullptr, name, resource<T>::destructor, ERL_NIF_RT_CREATE, nullptr);
+        if (!resource<T>::resource_type)
+            throw std::runtime_error(std::string("failed to open NIF resource type: ") + name);
     }
 
     static void destructor(ErlNifEnv*, void* objp)
