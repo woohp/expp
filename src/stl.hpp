@@ -1,6 +1,7 @@
 #pragma once
 #include "casts.hpp"
 #include <map>
+#include <new>
 #include <stdexcept>
 #include <unordered_map>
 #include <vector>
@@ -76,12 +77,13 @@ public:
         }
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::vector<T>& items) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::vector<T>& items)
     {
         if constexpr ((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
         {
             ErlNifBinary binary_info;
-            enif_alloc_binary(items.size(), &binary_info);
+            if (!enif_alloc_binary(items.size(), &binary_info))
+                throw std::bad_alloc {};
             std::copy_n(reinterpret_cast<const unsigned char*>(items.data()), items.size(), binary_info.data);
             return enif_make_binary(env, &binary_info);
         }
@@ -129,7 +131,7 @@ public:
         return _map;
     }
 
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
     {
         std::vector<ERL_NIF_TERM> keys;
         std::vector<ERL_NIF_TERM> values;
@@ -143,7 +145,8 @@ public:
         }
 
         ERL_NIF_TERM map_term;
-        enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term);
+        if (!enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term))
+            throw std::invalid_argument("duplicate keys in map");
         return map_term;
     }
 };
@@ -181,7 +184,7 @@ public:
         return _map;
     }
 
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
     {
         std::vector<ERL_NIF_TERM> keys;
         std::vector<ERL_NIF_TERM> values;
@@ -195,7 +198,8 @@ public:
         }
 
         ERL_NIF_TERM map_term;
-        enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term);
+        if (!enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term))
+            throw std::invalid_argument("duplicate keys in map");
         return map_term;
     }
 };
