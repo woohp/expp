@@ -217,4 +217,38 @@ defmodule MyModTest do
       MyMod.multimap_test(%{})
     end
   end
+
+  test "int8_t bounds" do
+    assert MyMod.int8_identity(0) == 0
+    assert MyMod.int8_identity(127) == 127
+    assert MyMod.int8_identity(-128) == -128
+
+    assert_raise ArgumentError, fn -> MyMod.int8_identity(128) end
+    assert_raise ArgumentError, fn -> MyMod.int8_identity(-129) end
+  end
+
+  test "uint8_t bounds" do
+    assert MyMod.uint8_identity(0) == 0
+    assert MyMod.uint8_identity(255) == 255
+
+    assert_raise ArgumentError, fn -> MyMod.uint8_identity(256) end
+    assert_raise ArgumentError, fn -> MyMod.uint8_identity(-1) end
+  end
+
+  test "int16_t bounds" do
+    assert MyMod.int16_identity(0) == 0
+    assert MyMod.int16_identity(32767) == 32767
+    assert MyMod.int16_identity(-32768) == -32768
+
+    assert_raise ArgumentError, fn -> MyMod.int16_identity(32768) end
+    assert_raise ArgumentError, fn -> MyMod.int16_identity(-32769) end
+  end
+
+  test "float bounds" do
+    assert MyMod.float_identity(0.0) == 0.0
+    assert_in_delta MyMod.float_identity(3.14), 3.14, 0.001
+
+    assert_raise ArgumentError, fn -> MyMod.float_identity(1.0e39) end
+    assert_raise ArgumentError, fn -> MyMod.float_identity(-1.0e39) end
+  end
 end

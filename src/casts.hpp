@@ -9,6 +9,7 @@
 #include <erl_nif.h>
 #include <expected>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -74,6 +75,8 @@ struct type_cast<T>
                 int i;
                 if (!enif_get_int(env, term, &i))
                     throw std::invalid_argument("expected an integer, got: " + format_term(term));
+                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
+                    throw std::invalid_argument("integer argument out of bounds...");
                 return static_cast<T>(i);
             }
             else
@@ -81,6 +84,8 @@ struct type_cast<T>
                 ErlNifSInt64 i;
                 if (!enif_get_int64(env, term, &i))
                     throw std::invalid_argument("expected an int64, got: " + format_term(term));
+                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
+                    throw std::invalid_argument("integer argument out of bounds...");
                 return static_cast<T>(i);
             }
         }
@@ -91,6 +96,8 @@ struct type_cast<T>
                 unsigned int i;
                 if (!enif_get_uint(env, term, &i))
                     throw std::invalid_argument("expected an unsigned int, got: " + format_term(term));
+                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
+                    throw std::invalid_argument("integer argument out of bounds...");
                 return static_cast<T>(i);
             }
             else
@@ -98,6 +105,8 @@ struct type_cast<T>
                 ErlNifUInt64 i;
                 if (!enif_get_uint64(env, term, &i))
                     throw std::invalid_argument("expected a uint64, got: " + format_term(term));
+                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
+                    throw std::invalid_argument("integer argument out of bounds...");
                 return static_cast<T>(i);
             }
         }
@@ -131,6 +140,8 @@ struct type_cast<T>
         double d;
         if (!enif_get_double(env, term, &d))
             throw std::invalid_argument("expected a float, got: " + format_term(term));
+        if (d < std::numeric_limits<T>::lowest() || d > std::numeric_limits<T>::max())
+            throw std::invalid_argument("floating point argument out of bounds...");
         return static_cast<T>(d);
     }
 

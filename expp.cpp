@@ -223,6 +223,30 @@ term term_identity(term t)
 }
 
 
+int8_t int8_identity(int8_t x)
+{
+    return x;
+}
+
+
+uint8_t uint8_identity(uint8_t x)
+{
+    return x;
+}
+
+
+int16_t int16_identity(int16_t x)
+{
+    return x;
+}
+
+
+float float_identity(float x)
+{
+    return x;
+}
+
+
 multimap<string, int> multimap_test(multimap<string, int> m)
 {
     return m;
@@ -276,5 +300,9 @@ MODULE(
     def(binary_identity, DirtyFlags::NotDirty),
     def(term_identity, DirtyFlags::NotDirty),
     def(raise_runtime_error_test, DirtyFlags::NotDirty),
+    def(int8_identity, DirtyFlags::NotDirty),
+    def(uint8_identity, DirtyFlags::NotDirty),
+    def(int16_identity, DirtyFlags::NotDirty),
+    def(float_identity, DirtyFlags::NotDirty),
     def(multimap_test, DirtyFlags::NotDirty),
     def(unordered_multimap_test, DirtyFlags::NotDirty), )
