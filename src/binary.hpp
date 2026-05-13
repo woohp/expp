@@ -26,14 +26,14 @@ public:
     explicit binary(size_t size)
     {
         if (!enif_alloc_binary(size, this))
-            throw std::bad_alloc {};
+            throw std::bad_alloc { };
     }
 
     template <size_t N>
     explicit binary(const char (&str)[N])
     {
         if (!enif_alloc_binary(N - 1, this))
-            throw std::bad_alloc {};
+            throw std::bad_alloc { };
         std::copy_n(str, N - 1, this->data);
     }
 

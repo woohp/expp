@@ -150,7 +150,7 @@ struct type_cast<std::string>
     {
         ErlNifBinary binary_info;
         if (!enif_alloc_binary(s.size(), &binary_info))
-            throw std::bad_alloc {};
+            throw std::bad_alloc { };
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
     }
@@ -172,7 +172,7 @@ struct type_cast<std::string_view>
     {
         ErlNifBinary binary_info;
         if (!enif_alloc_binary(s.size(), &binary_info))
-            throw std::bad_alloc {};
+            throw std::bad_alloc { };
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
     }
@@ -318,7 +318,7 @@ public:
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const tuple_type& items) noexcept
     {
-        return to_term_impl(env, items, std::index_sequence_for<Args...> {});
+        return to_term_impl(env, items, std::index_sequence_for<Args...> { });
     }
 };
 

@@ -31,7 +31,7 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     template <func_type fn>
     constexpr static R apply(ErlNifEnv* env, const ERL_NIF_TERM argv[])
     {
-        return apply_impl<fn>(env, argv, std::make_index_sequence<nargs> {});
+        return apply_impl<fn>(env, argv, std::make_index_sequence<nargs> { });
     }
 
     constexpr static bool any_args_by_reference()

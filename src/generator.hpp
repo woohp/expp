@@ -33,24 +33,24 @@ public:
 
     constexpr std::suspend_always initial_suspend() const noexcept
     {
-        return {};
+        return { };
     }
     constexpr std::suspend_always final_suspend() const noexcept
     {
-        return {};
+        return { };
     }
 
     template <typename U = T, std::enable_if_t<!std::is_rvalue_reference<U>::value, int> = 0>
     std::suspend_always yield_value(std::remove_reference_t<T>& value) noexcept
     {
         m_value = std::addressof(value);
-        return {};
+        return { };
     }
 
     std::suspend_always yield_value(std::remove_reference_t<T>&& value) noexcept
     {
         m_value = std::addressof(value);
-        return {};
+        return { };
     }
 
     void unhandled_exception()
@@ -208,7 +208,7 @@ public:
 
     detail::generator_sentinel end() noexcept
     {
-        return detail::generator_sentinel {};
+        return detail::generator_sentinel { };
     }
 
     void swap(generator& other) noexcept
