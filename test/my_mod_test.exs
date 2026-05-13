@@ -218,37 +218,62 @@ defmodule MyModTest do
     end
   end
 
-  test "int8_t bounds" do
-    assert MyMod.int8_identity(0) == 0
-    assert MyMod.int8_identity(127) == 127
-    assert MyMod.int8_identity(-128) == -128
+  describe "integer bounds" do
+    test "int8_t valid values" do
+      assert MyMod.int8_identity(0) == 0
+      assert MyMod.int8_identity(127) == 127
+      assert MyMod.int8_identity(-128) == -128
+    end
 
-    assert_raise ArgumentError, fn -> MyMod.int8_identity(128) end
-    assert_raise ArgumentError, fn -> MyMod.int8_identity(-129) end
+    test "int8_t rejects values that overflow when cast to int8_t" do
+      assert_raise ArgumentError, fn -> MyMod.int8_identity(128) end
+      assert_raise ArgumentError, fn -> MyMod.int8_identity(-129) end
+      assert_raise ArgumentError, fn -> MyMod.int8_identity(1000) end
+    end
+
+    test "int8_t rejects extremely large values" do
+      assert_raise ArgumentError, fn -> MyMod.int8_identity(1_000_000_000_000) end
+    end
+
+    test "uint8_t valid values" do
+      assert MyMod.uint8_identity(0) == 0
+      assert MyMod.uint8_identity(255) == 255
+    end
+
+    test "uint8_t rejects values that overflow when cast to uint8_t" do
+      assert_raise ArgumentError, fn -> MyMod.uint8_identity(256) end
+      assert_raise ArgumentError, fn -> MyMod.uint8_identity(300) end
+    end
+
+    test "uint8_t rejects extremely large values" do
+      assert_raise ArgumentError, fn -> MyMod.uint8_identity(1_000_000_000_000) end
+    end
+
+    test "uint8_t rejects negative values" do
+      assert_raise ArgumentError, fn -> MyMod.uint8_identity(-1) end
+    end
+
+    test "int16_t valid values" do
+      assert MyMod.int16_identity(0) == 0
+      assert MyMod.int16_identity(32767) == 32767
+      assert MyMod.int16_identity(-32768) == -32768
+    end
+
+    test "int16_t rejects values that overflow" do
+      assert_raise ArgumentError, fn -> MyMod.int16_identity(32768) end
+      assert_raise ArgumentError, fn -> MyMod.int16_identity(-32769) end
+    end
   end
 
-  test "uint8_t bounds" do
-    assert MyMod.uint8_identity(0) == 0
-    assert MyMod.uint8_identity(255) == 255
+  describe "float bounds" do
+    test "float valid values" do
+      assert MyMod.float_identity(0.0) == 0.0
+      assert_in_delta MyMod.float_identity(3.14), 3.14, 0.001
+    end
 
-    assert_raise ArgumentError, fn -> MyMod.uint8_identity(256) end
-    assert_raise ArgumentError, fn -> MyMod.uint8_identity(-1) end
-  end
-
-  test "int16_t bounds" do
-    assert MyMod.int16_identity(0) == 0
-    assert MyMod.int16_identity(32767) == 32767
-    assert MyMod.int16_identity(-32768) == -32768
-
-    assert_raise ArgumentError, fn -> MyMod.int16_identity(32768) end
-    assert_raise ArgumentError, fn -> MyMod.int16_identity(-32769) end
-  end
-
-  test "float bounds" do
-    assert MyMod.float_identity(0.0) == 0.0
-    assert_in_delta MyMod.float_identity(3.14), 3.14, 0.001
-
-    assert_raise ArgumentError, fn -> MyMod.float_identity(1.0e39) end
-    assert_raise ArgumentError, fn -> MyMod.float_identity(-1.0e39) end
+    test "float rejects values exceeding float max" do
+      assert_raise ArgumentError, fn -> MyMod.float_identity(1.0e39) end
+      assert_raise ArgumentError, fn -> MyMod.float_identity(-1.0e39) end
+    end
   end
 end
