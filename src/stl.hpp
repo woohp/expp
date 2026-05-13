@@ -203,4 +203,80 @@ public:
         return map_term;
     }
 };
+
+
+namespace detail
+{
+
+template <typename Map>
+Map decode_multimap(ErlNifEnv* env, ERL_NIF_TERM term, const char* label)
+{
+    unsigned len = 0;
+    if (!enif_get_list_length(env, term, &len))
+        throw std::invalid_argument(std::string("invalid ") + label);
+
+    Map _map;
+    if constexpr (requires { _map.reserve(len); })
+        _map.reserve(len);
+
+    ERL_NIF_TERM list_term = term;
+    for (unsigned i = 0; i < len; i++)
+    {
+        ERL_NIF_TERM head, tail;
+        if (!enif_get_list_cell(env, list_term, &head, &tail))
+            throw std::invalid_argument(std::string("invalid ") + label);
+        using pair_type = std::pair<typename Map::key_type, typename Map::mapped_type>;
+        _map.emplace(type_cast<pair_type>::from_term(env, head));
+        list_term = tail;
+    }
+
+    return _map;
+}
+
+template <typename Map>
+ERL_NIF_TERM encode_multimap(ErlNifEnv* env, const Map& _map)
+{
+    using pair_type = std::pair<typename Map::key_type, typename Map::mapped_type>;
+    std::vector<ERL_NIF_TERM> terms;
+    terms.reserve(_map.size());
+    for (const auto& item : _map)
+        terms.push_back(type_cast<pair_type>::to_term(env, pair_type(item.first, item.second)));
+    return enif_make_list_from_array(env, terms.data(), static_cast<unsigned>(terms.size()));
+}
+
+}
+
+
+template <InnerType K, InnerType V>
+struct type_cast<std::multimap<K, V>>
+{
+    using map_type = std::multimap<std::decay_t<K>, std::decay_t<V>>;
+
+    static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return detail::decode_multimap<map_type>(env, term, "multimap");
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
+    {
+        return detail::encode_multimap(env, _map);
+    }
+};
+
+
+template <InnerType K, InnerType V>
+struct type_cast<std::unordered_multimap<K, V>>
+{
+    using map_type = std::unordered_multimap<std::decay_t<K>, std::decay_t<V>>;
+
+    static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return detail::decode_multimap<map_type>(env, term, "unordered_multimap");
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
+    {
+        return detail::encode_multimap(env, _map);
+    }
+};
 }

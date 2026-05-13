@@ -191,4 +191,30 @@ defmodule MyModTest do
       MyMod.times4({1, 2, 3, 4})
     end
   end
+
+  test "multimap roundtrip" do
+    input = [{"a", 1}, {"a", 2}, {"b", 3}]
+    assert MyMod.multimap_test(input) == input
+  end
+
+  test "unordered_multimap roundtrip" do
+    list = [{"a", 1}, {"a", 2}, {"b", 3}]
+    result = MyMod.unordered_multimap_test(list)
+    assert length(result) == 3
+    for {k, v} <- result, do: assert(Enum.member?(list, {k, v}))
+  end
+
+  test "empty multimap" do
+    assert MyMod.multimap_test([]) == []
+  end
+
+  test "empty unordered_multimap" do
+    assert MyMod.unordered_multimap_test([]) == []
+  end
+
+  test "invalid multimap raises" do
+    assert_raise ArgumentError, fn ->
+      MyMod.multimap_test(%{})
+    end
+  end
 end

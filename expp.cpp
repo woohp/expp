@@ -223,6 +223,18 @@ term term_identity(term t)
 }
 
 
+multimap<string, int> multimap_test(multimap<string, int> m)
+{
+    return m;
+}
+
+
+unordered_multimap<string, int> unordered_multimap_test(unordered_multimap<string, int> m)
+{
+    return m;
+}
+
+
 int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 {
     yielding_resource_t::init(env, "yielding_generator");
@@ -263,4 +275,6 @@ MODULE(
     def(dirty_cpu_test, DirtyFlags::DirtyCpu),
     def(binary_identity, DirtyFlags::NotDirty),
     def(term_identity, DirtyFlags::NotDirty),
-    def(raise_runtime_error_test, DirtyFlags::NotDirty), )
+    def(raise_runtime_error_test, DirtyFlags::NotDirty),
+    def(multimap_test, DirtyFlags::NotDirty),
+    def(unordered_multimap_test, DirtyFlags::NotDirty), )
