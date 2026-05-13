@@ -1458,6 +1458,7 @@ template <typename GeneratorType>
 struct yielding_resource_impl : yielding_resource_base
 {
     GeneratorType coro;
+    std::optional<typename GeneratorType::iterator> it;
 
     explicit yielding_resource_impl(GeneratorType&& c)
         : coro(std::move(c))
@@ -1467,10 +1468,17 @@ struct yielding_resource_impl : yielding_resource_base
     {
         try
         {
-            if (const auto& out = *std::begin(coro); out)
-            {
+            if (!it)
+                it = coro.begin();
+            else
+                ++(*it);
+
+            if (*it == coro.end())
+                return exceptions::raise_runtime_error(env, "yielding NIF ended without final result");
+
+            const auto& out = **it;
+            if (out)
                 return type_cast<std::decay_t<decltype(*out)>>::to_term(env, *out);
-            }
             else
                 return 0;  // indicates that it needs to be scheduled for another step
         }
