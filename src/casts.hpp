@@ -54,6 +54,14 @@ struct type_cast<term>
 };
 
 
+inline std::string format_term(ERL_NIF_TERM term)
+{
+    char buffer[100];
+    int written_len = enif_snprintf(buffer, sizeof(buffer), "%T...", term);
+    return std::string { buffer, written_len };
+}
+
+
 template <std::integral T>
 struct type_cast<T>
 {
@@ -65,14 +73,14 @@ struct type_cast<T>
             {
                 int i;
                 if (!enif_get_int(env, term, &i))
-                    throw std::invalid_argument("invalid int");
+                    throw std::invalid_argument("expected an integer, got: " + format_term(term));
                 return static_cast<T>(i);
             }
             else
             {
                 ErlNifSInt64 i;
                 if (!enif_get_int64(env, term, &i))
-                    throw std::invalid_argument("invalid int64");
+                    throw std::invalid_argument("expected an int64, got: " + format_term(term));
                 return static_cast<T>(i);
             }
         }
@@ -82,14 +90,14 @@ struct type_cast<T>
             {
                 unsigned int i;
                 if (!enif_get_uint(env, term, &i))
-                    throw std::invalid_argument("invalid uint");
+                    throw std::invalid_argument("expected an unsigned int, got: " + format_term(term));
                 return static_cast<T>(i);
             }
             else
             {
                 ErlNifUInt64 i;
                 if (!enif_get_uint64(env, term, &i))
-                    throw std::invalid_argument("invalid uint64");
+                    throw std::invalid_argument("expected a uint64, got: " + format_term(term));
                 return static_cast<T>(i);
             }
         }
@@ -122,7 +130,7 @@ struct type_cast<T>
     {
         double d;
         if (!enif_get_double(env, term, &d))
-            throw std::invalid_argument("invalid double");
+            throw std::invalid_argument("expected a float, got: " + format_term(term));
         return static_cast<T>(d);
     }
 
@@ -142,7 +150,7 @@ struct type_cast<std::string>
     {
         ErlNifBinary binary_info;
         if (!enif_inspect_binary(env, term, &binary_info))
-            throw std::invalid_argument("invalid string");
+            throw std::invalid_argument("expected a binary, got: " + format_term(term));
         return std::string(reinterpret_cast<const char*>(binary_info.data), binary_info.size);
     }
 
@@ -164,7 +172,7 @@ struct type_cast<std::string_view>
     {
         ErlNifBinary binary_info;
         if (!enif_inspect_binary(env, term, &binary_info))
-            throw std::invalid_argument("invalid string");
+            throw std::invalid_argument("expected a string, got: " + format_term(term));
         return std::string_view(reinterpret_cast<const char*>(binary_info.data), binary_info.size);
     }
 
@@ -186,7 +194,7 @@ struct type_cast<binary>
     {
         binary b;
         if (!enif_inspect_binary(env, term, &b))
-            throw std::invalid_argument("invalid binary");
+            throw std::invalid_argument("expected a binary, got: " + format_term(term));
         b._term = term;
         return b;
     }
@@ -211,11 +219,11 @@ struct type_cast<atom>
     {
         unsigned len;
         if (!enif_get_atom_length(env, term, &len, ERL_NIF_LATIN1))
-            throw std::invalid_argument("invalid atom");
+            throw std::invalid_argument("expected an atom, got: " + format_term(term));
         std::string s(len, ' ');
 
         if (enif_get_atom(env, term, &s[0], len + 1, ERL_NIF_LATIN1) != int(len + 1))
-            throw std::invalid_argument("invalid atom");
+            throw std::invalid_argument("expected an atom, got: " + format_term(term));
 
         return atom { s };
     }
@@ -240,7 +248,7 @@ struct type_cast<bool>
         char buf[8];
         std::size_t bytes_read = enif_get_atom(env, term, buf, 8, ERL_NIF_LATIN1);
         if (bytes_read == 0)
-            throw std::invalid_argument("not boolean");
+            throw std::invalid_argument("expected a boolean, got: " + format_term(term));
 
         std::string_view atom_str(buf, bytes_read - 1);
         if (atom_str == "true"sv)
@@ -248,7 +256,7 @@ struct type_cast<bool>
         else if (atom_str == "false"sv)
             return false;
         else
-            throw std::invalid_argument("not boolean");
+            throw std::invalid_argument("expected a boolean (true/false), got: " + format_term(term));
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, bool b) noexcept
@@ -271,9 +279,9 @@ struct type_cast<std::pair<X, Y>>
         const ERL_NIF_TERM* tup_array = nullptr;
         int arity;
         if (!enif_get_tuple(env, term, &arity, &tup_array))
-            throw std::invalid_argument("invalid pair");
+            throw std::invalid_argument("expected a tuple, got: " + format_term(term));
         if (arity != 2)
-            throw std::invalid_argument("invalid pair");
+            throw std::invalid_argument("expected a 2-element tuple, got: " + format_term(term));
         return std::pair<X, Y>(type_cast<X>::from_term(env, tup_array[0]), type_cast<Y>::from_term(env, tup_array[1]));
     }
 
@@ -310,10 +318,12 @@ public:
         const ERL_NIF_TERM* tup_array;
         int arity;
         if (!enif_get_tuple(env, term, &arity, &tup_array))
-            throw std::invalid_argument("invalid tuple");
+            throw std::invalid_argument("expected a tuple, got: " + format_term(term));
         if (arity != static_cast<int>(sizeof...(Args)))
-            throw std::invalid_argument("invalid tuple arity");
-        return from_term_impl(env, tup_array, std::index_sequence_for<Args...> {});
+            throw std::invalid_argument(
+                "expected tuple arity " + std::to_string(sizeof...(Args)) + ", got " + std::to_string(arity) + ": "
+                + format_term(term));
+        return from_term_impl(env, tup_array, std::index_sequence_for<Args...> { });
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const tuple_type& items) noexcept
@@ -339,7 +349,7 @@ private:
         catch (const std::invalid_argument&)
         {
             if constexpr (sizeof...(Rest) == 0)
-                throw std::invalid_argument("invalid argument");
+                throw std::invalid_argument("did not match any variant: " + format_term(term));
             else
                 return type_cast<variant_type>::from_term_impl<I + 1, Rest...>(env, term);
         }
@@ -391,9 +401,9 @@ struct type_cast<std::optional<T>>
         {
             char buf[8];
             if (enif_get_atom(env, term, buf, 8, ERL_NIF_LATIN1) != 4)
-                throw std::invalid_argument("not nil");
+                throw std::invalid_argument("expected nil, got: " + format_term(term));
             if (std::string_view(buf, 3) != "nil")
-                throw std::invalid_argument("not nil");
+                throw std::invalid_argument("expected nil, got: " + format_term(term));
             return std::nullopt;
         }
         else
