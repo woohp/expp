@@ -71,8 +71,25 @@ public:
     {
         void* buf = enif_alloc_resource(resource<T>::resource_type, sizeof(T));
         if (!buf)
-            throw std::bad_alloc {};
-        return resource<T> { new (buf) T { std::forward<Args>(args)... } };
+            throw std::bad_alloc { };
+
+        struct alloc_guard
+        {
+            void* ptr;
+            ~alloc_guard()
+            {
+                if (ptr)
+                    enif_release_resource(ptr);
+            }
+            void dismiss()
+            {
+                ptr = nullptr;
+            }
+        } guard { buf };
+
+        new (buf) T { std::forward<Args>(args)... };
+        guard.dismiss();
+        return resource<T> { static_cast<T*>(buf) };
     }
 
     static void init(ErlNifEnv* env, const char* name)
