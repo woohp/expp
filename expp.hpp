@@ -1326,6 +1326,78 @@ struct type_cast<std::unordered_multimap<K, V>>
 
 namespace expp
 {
+// Customization point: users must specialize this to true_type for custom
+// decoded types whose internal data is fully owned (not borrowed from the
+// Erlang heap). The default is false_type (fail-closed) so unknown types
+// are conservatively rejected in yielding NIF arguments.
+template <typename T>
+struct is_yield_persistent : std::false_type
+{ };
+
+
+namespace detail
+{
+template <typename T>
+struct is_resource_impl : std::false_type
+{ };
+
+template <typename T>
+struct is_resource_impl<resource<T>> : std::true_type
+{ };
+}
+
+
+// consteval check: true if T owns its data and is safe to persist
+// across a yielding NIF suspension. The default is false (fail-closed);
+// only known-safe types (scalars, fully-owned containers of scalars,
+// and user types with is_yield_persistent<T> = true_type) pass.
+// Containers are decomposed generically via tuple_size, variant_size,
+// and value_type rather than enumerating every template.
+template <typename T>
+consteval bool is_yield_safe()
+{
+    using U = std::remove_cvref_t<T>;
+
+    // Known unsafe types that borrow from the Erlang heap
+    if constexpr (std::same_as<U, std::string_view> || std::same_as<U, binary> || std::same_as<U, term>)
+        return false;
+
+    // resource<T> is tied to a specific NIF call environment
+    if constexpr (detail::is_resource_impl<U>::value)
+        return false;
+
+    // Container with value_type (vector, optional, array, map, etc.): check element type.
+    // This is checked before tuple_size so that homogeneous containers (e.g. array<T,N>)
+    // don't redundantly iterate every element.
+    if constexpr (requires { typename U::value_type; })
+        return is_yield_safe<typename U::value_type>();
+
+    // Tuple-like (pair, tuple): check each element individually
+    if constexpr (requires { std::tuple_size<U>::value; })
+    {
+        return []<std::size_t... I>(std::index_sequence<I...>) {
+            return (is_yield_safe<std::tuple_element_t<I, U>>() && ...);
+        }(std::make_index_sequence<std::tuple_size_v<U>>());
+    }
+
+    // Variant: check each alternative
+    if constexpr (requires { std::variant_size<U>::value; })
+    {
+        return []<std::size_t... I>(std::index_sequence<I...>) {
+            return (is_yield_safe<std::variant_alternative_t<I, U>>() && ...);
+        }(std::make_index_sequence<std::variant_size_v<U>>());
+    }
+
+    // Scalars (int, float, bool, enums, pointers) are always owned by value
+    // and safe to persist across suspension.
+    if constexpr (std::is_scalar_v<U>)
+        return true;
+
+    // Fall through to the user customization point (default false — fail-closed).
+    return is_yield_persistent<U>::value;
+}
+
+
 // A yielding type is a generator that returns an optional of the underlying type.
 // If it yields nullopt, then the next nif execution will be scheduled, otherwise, that thing is returned to the caller.
 template <typename T>
@@ -1454,6 +1526,11 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     {
         return (... || std::is_same_v<Args, U>);
     }
+
+    constexpr static bool all_args_yield_safe()
+    {
+        return (... && expp::is_yield_safe<Args>());
+    }
 };
 
 
@@ -1494,19 +1571,17 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         {
             auto ret = func_traits::template apply<fn>(env, argv);
 
-            // Do some type-checking to make sure we don't run into trouble:
-            // Because generator functions can be resumed, they cannot take
-            // 1. arguments by reference (the original stack is gone when it's resumed)
-            // 2. arguments of type binary (the data pointer might be invalidated when it's resumed)
-            // 3. arguments of type string_view (a borrowed view into binary memory, same hazard as binary)
+            // Generator functions can be resumed after suspension, so every
+            // argument must be fully owned (not borrowed from the Erlang heap).
+            // References are invalid because the original stack frame is gone.
             static_assert(
                 !func_traits::any_args_by_reference(), "generator functions cannot have pass-by-reference arguments");
             static_assert(
-                !func_traits::template any_args_has_type<binary>(),
-                "generator functions cannot have arguments of type binary");
-            static_assert(
-                !func_traits::template any_args_has_type<std::string_view>(),
-                "generator functions cannot have arguments of type string_view");
+                func_traits::all_args_yield_safe(),
+                "generator function arguments must be fully owned across suspension; "
+                "string_view, binary, resource, term, and containers wrapping them "
+                "are not allowed. Specialize expp::is_yield_persistent<T> = std::true_type "
+                "for fully-owned custom decoded types.");
 
             // Wrap the generator in a type-erased impl and store the dirty flag
             // so that coroutine_step can propagate it to all future continuations.

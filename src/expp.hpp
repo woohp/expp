@@ -44,6 +44,11 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     {
         return (... || std::is_same_v<Args, U>);
     }
+
+    constexpr static bool all_args_yield_safe()
+    {
+        return (... && expp::is_yield_safe<Args>());
+    }
 };
 
 
@@ -84,19 +89,17 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         {
             auto ret = func_traits::template apply<fn>(env, argv);
 
-            // Do some type-checking to make sure we don't run into trouble:
-            // Because generator functions can be resumed, they cannot take
-            // 1. arguments by reference (the original stack is gone when it's resumed)
-            // 2. arguments of type binary (the data pointer might be invalidated when it's resumed)
-            // 3. arguments of type string_view (a borrowed view into binary memory, same hazard as binary)
+            // Generator functions can be resumed after suspension, so every
+            // argument must be fully owned (not borrowed from the Erlang heap).
+            // References are invalid because the original stack frame is gone.
             static_assert(
                 !func_traits::any_args_by_reference(), "generator functions cannot have pass-by-reference arguments");
             static_assert(
-                !func_traits::template any_args_has_type<binary>(),
-                "generator functions cannot have arguments of type binary");
-            static_assert(
-                !func_traits::template any_args_has_type<std::string_view>(),
-                "generator functions cannot have arguments of type string_view");
+                func_traits::all_args_yield_safe(),
+                "generator function arguments must be fully owned across suspension; "
+                "string_view, binary, resource, term, and containers wrapping them "
+                "are not allowed. Specialize expp::is_yield_persistent<T> = std::true_type "
+                "for fully-owned custom decoded types.");
 
             // Wrap the generator in a type-erased impl and store the dirty flag
             // so that coroutine_step can propagate it to all future continuations.

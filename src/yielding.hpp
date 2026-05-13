@@ -5,10 +5,83 @@
 #include "resource.hpp"
 #include <chrono>
 #include <memory>
+#include <type_traits>
 
 
 namespace expp
 {
+// Customization point: users must specialize this to true_type for custom
+// decoded types whose internal data is fully owned (not borrowed from the
+// Erlang heap). The default is false_type (fail-closed) so unknown types
+// are conservatively rejected in yielding NIF arguments.
+template <typename T>
+struct is_yield_persistent : std::false_type
+{ };
+
+
+namespace detail
+{
+template <typename T>
+struct is_resource_impl : std::false_type
+{ };
+
+template <typename T>
+struct is_resource_impl<resource<T>> : std::true_type
+{ };
+}
+
+
+// consteval check: true if T owns its data and is safe to persist
+// across a yielding NIF suspension. The default is false (fail-closed);
+// only known-safe types (scalars, fully-owned containers of scalars,
+// and user types with is_yield_persistent<T> = true_type) pass.
+// Containers are decomposed generically via tuple_size, variant_size,
+// and value_type rather than enumerating every template.
+template <typename T>
+consteval bool is_yield_safe()
+{
+    using U = std::remove_cvref_t<T>;
+
+    // Known unsafe types that borrow from the Erlang heap
+    if constexpr (std::same_as<U, std::string_view> || std::same_as<U, binary> || std::same_as<U, term>)
+        return false;
+
+    // resource<T> is tied to a specific NIF call environment
+    if constexpr (detail::is_resource_impl<U>::value)
+        return false;
+
+    // Container with value_type (vector, optional, array, map, etc.): check element type.
+    // This is checked before tuple_size so that homogeneous containers (e.g. array<T,N>)
+    // don't redundantly iterate every element.
+    if constexpr (requires { typename U::value_type; })
+        return is_yield_safe<typename U::value_type>();
+
+    // Tuple-like (pair, tuple): check each element individually
+    if constexpr (requires { std::tuple_size<U>::value; })
+    {
+        return []<std::size_t... I>(std::index_sequence<I...>) {
+            return (is_yield_safe<std::tuple_element_t<I, U>>() && ...);
+        }(std::make_index_sequence<std::tuple_size_v<U>>());
+    }
+
+    // Variant: check each alternative
+    if constexpr (requires { std::variant_size<U>::value; })
+    {
+        return []<std::size_t... I>(std::index_sequence<I...>) {
+            return (is_yield_safe<std::variant_alternative_t<I, U>>() && ...);
+        }(std::make_index_sequence<std::variant_size_v<U>>());
+    }
+
+    // Scalars (int, float, bool, enums, pointers) are always owned by value
+    // and safe to persist across suspension.
+    if constexpr (std::is_scalar_v<U>)
+        return true;
+
+    // Fall through to the user customization point (default false — fail-closed).
+    return is_yield_persistent<U>::value;
+}
+
+
 // A yielding type is a generator that returns an optional of the underlying type.
 // If it yields nullopt, then the next nif execution will be scheduled, otherwise, that thing is returned to the caller.
 template <typename T>
