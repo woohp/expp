@@ -58,7 +58,7 @@ inline std::string format_term(ERL_NIF_TERM term)
 {
     char buffer[100];
     int written_len = enif_snprintf(buffer, sizeof(buffer), "%T...", term);
-    return std::string { buffer, written_len };
+    return std::string { buffer, static_cast<std::size_t>(written_len) };
 }
 
 
