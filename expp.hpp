@@ -491,6 +491,8 @@ public:
     template <typename U = T>
     U& get()
     {
+        if (owns_ && objp)
+            return *reinterpret_cast<U*>(objp);
         if (!enif_get_resource(env, term, resource<T>::resource_type, &this->objp))
             throw std::invalid_argument("invalid resource");
         return *reinterpret_cast<U*>(this->objp);

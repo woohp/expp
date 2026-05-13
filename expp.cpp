@@ -183,6 +183,14 @@ resource<MyResource> make_resource(int i)
 }
 
 
+resource<MyResource> make_resource_incremented(int i)
+{
+    auto r = resource<MyResource>::alloc(i);
+    r.get().value += 1;
+    return r;
+}
+
+
 int use_resource(resource<MyResource> res)
 {
     return res.get().value;
@@ -294,6 +302,7 @@ MODULE(
     def(complex_nested_map, DirtyFlags::NotDirty),
     def(byte_vector_test, DirtyFlags::NotDirty),
     def(make_resource, DirtyFlags::NotDirty),
+    def(make_resource_incremented, DirtyFlags::NotDirty),
     def(use_resource, DirtyFlags::NotDirty),
     def(throw_error, DirtyFlags::NotDirty),
     def(dirty_cpu_test, DirtyFlags::DirtyCpu),

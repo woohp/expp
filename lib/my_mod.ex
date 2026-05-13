@@ -27,6 +27,7 @@ defmodule MyMod do
   def complex_nested_map(_m), do: "NIF library not loaded"
   def byte_vector_test(_v), do: "NIF library not loaded"
   def make_resource(_i), do: "NIF library not loaded"
+  def make_resource_incremented(_i), do: "NIF library not loaded"
   def use_resource(_r), do: "NIF library not loaded"
   def throw_error(_i), do: "NIF library not loaded"
   def dirty_cpu_test(_i), do: "NIF library not loaded"

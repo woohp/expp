@@ -132,6 +132,12 @@ defmodule MyModTest do
     assert MyMod.use_resource(res) == 123
   end
 
+  test "resource get() on owning handle" do
+    res = MyMod.make_resource_incremented(5)
+    assert is_reference(res)
+    assert MyMod.use_resource(res) == 6
+  end
+
   test "handle erl_error" do
     assert MyMod.throw_error(10) == 10
     assert MyMod.throw_error(0) == {:error, "some error"}
