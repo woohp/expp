@@ -10,11 +10,11 @@ struct atom
 private:
     atom(const char* name, std::size_t len)
         : name(name, len)
-    { }
+    {}
 
     explicit atom(std::string name)
         : name(std::move(name))
-    { }
+    {}
 
     friend atom operator""_atom(const char* s, std::size_t len);
 
@@ -47,6 +47,6 @@ public:
 
 inline atom operator""_atom(const char* s, std::size_t len)
 {
-    return atom { s, len };
+    return atom{s, len};
 }
-}
+}  // namespace expp

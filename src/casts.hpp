@@ -45,7 +45,7 @@ struct type_cast<term>
 {
     static term from_term(ErlNifEnv*, ERL_NIF_TERM t)
     {
-        return term { t };
+        return term{t};
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv*, term t)
@@ -59,7 +59,7 @@ inline std::string format_term(ERL_NIF_TERM term)
 {
     char buffer[256];
     int would_have_written = enif_snprintf(buffer, sizeof(buffer), "%T", term);
-    return std::string { buffer, std::min(static_cast<std::size_t>(would_have_written), sizeof(buffer) - 1) };
+    return std::string{buffer, std::min(static_cast<std::size_t>(would_have_written), sizeof(buffer) - 1)};
 }
 
 
@@ -169,7 +169,7 @@ struct type_cast<std::string>
     {
         ErlNifBinary binary_info;
         if (!enif_alloc_binary(s.size(), &binary_info))
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
     }
@@ -191,7 +191,7 @@ struct type_cast<std::string_view>
     {
         ErlNifBinary binary_info;
         if (!enif_alloc_binary(s.size(), &binary_info))
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
     }
@@ -236,7 +236,7 @@ struct type_cast<atom>
         if (enif_get_atom(env, term, s.data(), len + 1, ERL_NIF_LATIN1) != int(len + 1))
             throw std::invalid_argument("expected an atom, got: " + format_term(term));
 
-        return atom { s };
+        return atom{s};
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const atom& a) noexcept
@@ -316,8 +316,8 @@ private:
     }
 
     template <std::size_t... I>
-    constexpr static ERL_NIF_TERM
-    to_term_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
+    constexpr static ERL_NIF_TERM to_term_impl(
+        ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
     {
         return enif_make_tuple(
             env, std::tuple_size_v<tuple_type>, type_cast<std::decay_t<Args>>::to_term(env, std::get<I>(items))...);
@@ -332,14 +332,14 @@ public:
             throw std::invalid_argument("expected a tuple, got: " + format_term(term));
         if (arity != static_cast<int>(sizeof...(Args)))
             throw std::invalid_argument(
-                "expected tuple arity " + std::to_string(sizeof...(Args)) + ", got " + std::to_string(arity) + ": "
-                + format_term(term));
-        return from_term_impl(env, tup_array, std::index_sequence_for<Args...> { });
+                "expected tuple arity " + std::to_string(sizeof...(Args)) + ", got " + std::to_string(arity) + ": " +
+                format_term(term));
+        return from_term_impl(env, tup_array, std::index_sequence_for<Args...>{});
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const tuple_type& items) noexcept
     {
-        return to_term_impl(env, items, std::index_sequence_for<Args...> { });
+        return to_term_impl(env, items, std::index_sequence_for<Args...>{});
     }
 };
 
@@ -438,7 +438,7 @@ struct type_cast<resource<T>>
 {
     static resource<T> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return resource<T> { env, term };
+        return resource<T>{env, term};
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const resource<T>& res)
@@ -449,4 +449,4 @@ struct type_cast<resource<T>>
         return enif_make_resource(env, res.objp);
     }
 };
-}
+}  // namespace expp

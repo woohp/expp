@@ -10,8 +10,8 @@
 namespace expp
 {
 template <typename T>
-concept InnerType = (std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>)
-    && (type_castable<T> || std::is_same_v<T, std::byte>);
+concept InnerType = (std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>) &&
+                    (type_castable<T> || std::is_same_v<T, std::byte>);
 
 
 template <class F>
@@ -22,7 +22,7 @@ class scope_exit
 public:
     explicit scope_exit(F&& f)
         : f(std::forward<F>(f))
-    { }
+    {}
 
     scope_exit(scope_exit&& other) = delete;
 
@@ -83,7 +83,7 @@ public:
         {
             ErlNifBinary binary_info;
             if (!enif_alloc_binary(items.size(), &binary_info))
-                throw std::bad_alloc { };
+                throw std::bad_alloc{};
             std::copy_n(reinterpret_cast<const unsigned char*>(items.data()), items.size(), binary_info.data);
             return enif_make_binary(env, &binary_info);
         }
@@ -244,7 +244,7 @@ ERL_NIF_TERM encode_multimap(ErlNifEnv* env, const Map& _map)
     return enif_make_list_from_array(env, terms.data(), static_cast<unsigned>(terms.size()));
 }
 
-}
+}  // namespace detail
 
 
 template <InnerType K, InnerType V>
@@ -279,4 +279,4 @@ struct type_cast<std::unordered_multimap<K, V>>
         return detail::encode_multimap(env, _map);
     }
 };
-}
+}  // namespace expp

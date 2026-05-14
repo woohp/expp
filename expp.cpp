@@ -166,7 +166,7 @@ std::map<string, vector<int>> complex_nested_map(std::map<string, vector<int>> m
 vector<std::byte> byte_vector_test(vector<std::byte> v)
 {
     for (auto& b : v)
-        b = std::byte { static_cast<unsigned char>(static_cast<unsigned char>(b) + 1) };
+        b = std::byte{static_cast<unsigned char>(static_cast<unsigned char>(b) + 1)};
     return v;
 }
 

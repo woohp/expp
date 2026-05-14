@@ -26,14 +26,14 @@ public:
     explicit binary(size_t size)
     {
         if (!enif_alloc_binary(size, this))
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
     }
 
     template <size_t N>
     explicit binary(const char (&str)[N])
     {
         if (!enif_alloc_binary(N - 1, this))
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
         std::copy_n(str, N - 1, this->data);
     }
 
@@ -54,7 +54,7 @@ public:
         requires((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
     static binary from_bytes(const T* data, size_t size)
     {
-        binary b { size };
+        binary b{size};
         std::copy_n(data, size, b.data);
         return b;
     }
@@ -92,8 +92,8 @@ public:
 
 inline binary operator""_binary(const char* s, std::size_t len)
 {
-    binary binary_info { len };  // constructor checks allocation and throws on failure
+    binary binary_info{len};  // constructor checks allocation and throws on failure
     std::copy_n(s, len, binary_info.data);
     return binary_info;
 }
-}
+}  // namespace expp

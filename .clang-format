@@ -1,9 +1,16 @@
-BasedOnStyle: WebKit
+BasedOnStyle: Microsoft
 IndentWidth: 4
+ColumnLimit: 120
+UseTab: Never
+NamespaceIndentation: None
+AccessModifierOffset: -4
+PointerAlignment: Left
+ReferenceAlignment: Pointer
+
 BreakBeforeBraces: Custom
 BraceWrapping:
     AfterClass: true
-    AfterControlStatement: true
+    AfterControlStatement: Always
     AfterEnum: true
     AfterFunction: true
     AfterNamespace: true
@@ -16,15 +23,23 @@ BraceWrapping:
     SplitEmptyRecord: false
     SplitEmptyNamespace: false
 
-ColumnLimit: 120
-SpacesBeforeTrailingComments: 2
-AlignAfterOpenBracket: AlwaysBreak
-AlwaysBreakTemplateDeclarations: true
+AlignAfterOpenBracket: true
+BreakAfterOpenBracketBracedList: true
+BreakAfterOpenBracketFunction: true
+BreakAfterOpenBracketIf: true
+BreakBeforeCloseBracketBracedList: true
+BreakConstructorInitializers: BeforeComma
+BreakTemplateDeclarations: Yes
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Empty
+AllowShortBlocksOnASingleLine: Empty
+AllowShortEnumsOnASingleLine: false
+AllowShortNamespacesOnASingleLine: false
 BinPackParameters: false
-KeepEmptyLinesAtTheStartOfBlocks: false
 BinPackArguments: false
-NamespaceIndentation: None
+
+KeepEmptyLines:
+    AtStartOfBlock: false
 MaxEmptyLinesToKeep: 2
+SpacesBeforeTrailingComments: 2

@@ -8,7 +8,7 @@
 namespace expp
 {
 template <typename T, typename... Args>
-inline constexpr bool is_brace_constructible_v = requires { T { std::declval<Args>()... }; };
+inline constexpr bool is_brace_constructible_v = requires { T{std::declval<Args>()...}; };
 
 
 template <typename T>
@@ -27,14 +27,14 @@ class resource
         , term(term)
         , objp(nullptr)
         , owns_(false)
-    { }
+    {}
 
     resource(T* objp)
         : env(nullptr)
         , term(0)
         , objp(objp)
         , owns_(true)
-    { }
+    {}
 
 public:
     typedef T type;
@@ -73,7 +73,7 @@ public:
     {
         void* buf = enif_alloc_resource(resource<T>::resource_type, sizeof(T));
         if (!buf)
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
 
         struct alloc_guard
         {
@@ -87,17 +87,17 @@ public:
             {
                 ptr = nullptr;
             }
-        } guard { buf };
+        } guard{buf};
 
-        new (buf) T { std::forward<Args>(args)... };
+        new (buf) T{std::forward<Args>(args)...};
         guard.dismiss();
-        return resource<T> { static_cast<T*>(buf) };
+        return resource<T>{static_cast<T*>(buf)};
     }
 
     static void init(ErlNifEnv* env, const char* name)
     {
-        resource<T>::resource_type
-            = enif_open_resource_type(env, nullptr, name, resource<T>::destructor, ERL_NIF_RT_CREATE, nullptr);
+        resource<T>::resource_type =
+            enif_open_resource_type(env, nullptr, name, resource<T>::destructor, ERL_NIF_RT_CREATE, nullptr);
         if (!resource<T>::resource_type)
             throw std::runtime_error(std::string("failed to open NIF resource type: ") + name);
     }
@@ -114,4 +114,4 @@ public:
 template <typename T>
     requires std::destructible<T>
 ErlNifResourceType* resource<T>::resource_type = nullptr;
-}
+}  // namespace expp

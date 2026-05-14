@@ -31,7 +31,7 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     template <func_type fn>
     constexpr static R apply(ErlNifEnv* env, const ERL_NIF_TERM argv[])
     {
-        return apply_impl<fn>(env, argv, std::make_index_sequence<nargs> { });
+        return apply_impl<fn>(env, argv, std::make_index_sequence<nargs>{});
     }
 
     constexpr static bool any_args_by_reference()
@@ -114,7 +114,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                 // Allocate a resource for the generator and schedule it for later execution
                 auto res = yielding_resource_t::alloc(std::move(impl));
                 ERL_NIF_TERM resource_term = type_cast<yielding_resource_t>::to_term(env, res);
-                ERL_NIF_TERM out[] = { resource_term };
+                ERL_NIF_TERM out[] = {resource_term};
                 return enif_schedule_nif(env, "coroutine_step", dirty_flags, coroutine_step, 1, out);
             }
         }
@@ -162,7 +162,7 @@ consteval ErlNifFunc def_impl(const char* name)
     };
     return entry;
 }
-}
+}  // namespace expp
 
 
 /*
@@ -180,5 +180,5 @@ We want to be able to write:
 
 
 #define MODULE(NAME, LOAD, UPGRADE, UNLOAD, ...)                                                                       \
-    ErlNifFunc _nif_funcs[] = { __VA_ARGS__ };                                                                         \
+    ErlNifFunc _nif_funcs[] = {__VA_ARGS__};                                                                           \
     ERL_NIF_INIT(NAME, _nif_funcs, LOAD, nullptr, UPGRADE, UNLOAD)

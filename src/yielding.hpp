@@ -16,19 +16,19 @@ namespace expp
 // are conservatively rejected in yielding NIF arguments.
 template <typename T>
 struct is_yield_persistent : std::false_type
-{ };
+{};
 
 
 namespace detail
 {
 template <typename T>
 struct is_resource_impl : std::false_type
-{ };
+{};
 
 template <typename T>
 struct is_resource_impl<resource<T>> : std::true_type
-{ };
-}
+{};
+}  // namespace detail
 
 
 // consteval check: true if T owns its data and is safe to persist
@@ -90,12 +90,12 @@ using yielding = cppcoro::generator<std::optional<T>>;
 
 template <typename T>
 struct is_yielding : std::false_type
-{ };
+{};
 
 
 template <typename T>
 struct is_yielding<cppcoro::generator<std::optional<T>>> : std::true_type
-{ };
+{};
 
 
 template <typename T>
@@ -146,7 +146,7 @@ struct yielding_resource_impl : yielding_resource_base
 
     explicit yielding_resource_impl(GeneratorType&& c)
         : coro(std::move(c))
-    { }
+    {}
 
     ERL_NIF_TERM step(ErlNifEnv* env) override
     {
@@ -179,4 +179,4 @@ struct yielding_resource_impl : yielding_resource_base
 
 
 using yielding_resource_t = resource<std::unique_ptr<yielding_resource_base>>;
-}
+}  // namespace expp
