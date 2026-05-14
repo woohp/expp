@@ -15,11 +15,97 @@ MODULE(
 
 ```elixir
 defmodule MyMod do
-  use Expp, ext: "./expp.so"
+  use Expp, ext: "./expp"
 
   def add(_a, _b), do: "NIF library not loaded"
 end
 ```
+
+## Quickstart
+
+Create a new project and add the dependencies:
+
+```elixir
+# mix.exs
+def deps do
+  [
+    {:expp, github: "woohp/expp", runtime: false},
+    {:elixir_make, "~> 0.6", runtime: false}
+  ]
+end
+```
+
+Configure `elixir_make` as the build tool and pass the expp include path:
+
+```elixir
+# mix.exs
+def project do
+  [
+    app: :my_nif,
+    version: "0.1.0",
+    compilers: [:elixir_make] ++ Mix.compilers(),
+    make_env: fn -> %{"EXPP_INCLUDE_DIR" => Expp.include_dir()} end,
+    make_targets: ["priv/my_nif.so"],
+    deps: deps()
+  ]
+end
+```
+
+Write your NIF in `src/my_nif.cpp`:
+
+```cpp
+#include "expp.hpp"
+
+int add(int a, int b)
+{
+    return a + b;
+}
+
+MODULE(
+    Elixir.MyNif,
+    nullptr,
+    nullptr,
+    nullptr,
+    def(add, expp::DirtyFlags::NotDirty))
+```
+
+Create a `Makefile` that builds the shared library:
+
+```makefile
+ERTS_INCLUDE_DIR ?= $(ERL_EI_INCLUDE_DIR)
+
+priv:
+	@mkdir -p priv
+
+priv/my_nif.so: priv src/my_nif.cpp
+	$(CXX) -I$(ERTS_INCLUDE_DIR) -I$(EXPP_INCLUDE_DIR) -std=c++23 -fvisibility=hidden -shared -undefined dynamic_lookup -o $@ src/my_nif.cpp
+
+clean:
+	$(RM) priv/my_nif.so
+```
+
+Write the Elixir module in `lib/my_nif.ex`:
+
+```elixir
+defmodule MyNif do
+  use Expp, ext: "./priv/my_nif"
+
+  def add(_a, _b), do: "NIF library not loaded"
+end
+```
+
+Fetch dependencies, build, and test:
+
+```sh
+mix deps.get
+mix compile
+mix run -e "IO.puts(MyNif.add(2, 3))"
+# → 5
+```
+
+The shared library is compiled to `priv/my_nif.so` during `mix compile` and loaded at runtime by `Expp`.
+
+> **Symbol visibility.** The `-fvisibility=hidden` flag prevents symbol clashes when multiple NIF libraries use expp in the same VM. Without it, loading two such libraries will fail.
 
 ## Type Conversions
 
@@ -53,7 +139,8 @@ Nested containers (e.g. `vector<vector<int>>`, `map<string, vector<int>>`) work 
 When you need to handle types the library doesn't convert or want to pass an Erlang term through uninterpreted, use `expp::term`:
 
 ```cpp
-term term_identity(term t) {
+term term_identity(term t)
+{
     return t;
 }
 ```
@@ -67,11 +154,13 @@ The value is left untouched on both sides of the boundary — no conversion is a
 Use `expp::atom` as a parameter or return type to receive/produce Elixir atoms. The `""_atom` literal syntax is a shorthand for constructing atom values:
 
 ```cpp
-atom atom_returns(int i) {
+atom atom_returns(int i)
+{
     return i >= 0 ? "ok"_atom : "error"_atom;
 }
 
-int atom_arguments(atom a) {
+int atom_arguments(atom a)
+{
     return a == "foo" ? 1 : -1;
 }
 ```
@@ -101,7 +190,8 @@ By default the NIF is named after the C++ function. Pass a string as the second 
 The `load` function initialises resource types. If you use coroutines, `yielding_resource_t` must also be initialised here:
 
 ```cpp
-int load(ErlNifEnv* env, void**, ERL_NIF_TERM) {
+int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
+{
     resource<MyResource>::init(env, "MyResource");
     yielding_resource_t::init(env, "yielding_generator");
     return 0;
@@ -120,8 +210,10 @@ int load(ErlNifEnv* env, void**, ERL_NIF_TERM) {
 | `...` (unknown)                    | `RuntimeError` raised                          |
 
 ```cpp
-int divide(int a, int b) {
-    if (b == 0) throw erl_error<std::string>("division by zero");
+int divide(int a, int b)
+{
+    if (b == 0)
+        throw erl_error<std::string>("division by zero");
     return a / b;
 }
 ```
@@ -145,11 +237,13 @@ Long-lived C++ objects passed as Elixir references:
 ```cpp
 struct Counter { int value; };
 
-resource<Counter> make_counter(int start) {
+resource<Counter> make_counter(int start)
+{
     return resource<Counter>::alloc(start);
 }
 
-int read_counter(resource<Counter> c) {
+int read_counter(resource<Counter> c)
+{
     return c.get().value;
 }
 ```
@@ -161,11 +255,14 @@ int read_counter(resource<Counter> c) {
 Functions that execute incrementally across multiple scheduler reductions, preventing VM starvation:
 
 ```cpp
-expp::yielding<int> process_items(int n) {
+expp::yielding<int> process_items(int n)
+{
     expp::yielding_timer timer;
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++)
+    {
         // do some work...
-        if (timer.times_up()) {
+        if (timer.times_up())
+        {
             co_yield std::nullopt;    // suspend, reschedule
             timer.reset();
         }
@@ -175,51 +272,6 @@ expp::yielding<int> process_items(int n) {
 ```
 
 Restrictions: no reference, `binary`, or `string_view` arguments (their backing storage may be invalidated across resumptions).
-
----
-
-## Elixir Side
-
-```elixir
-defmodule MyMod do
-  use Expp, ext: "./expp.so"
-
-  # Fallback implementations when NIF is not loaded
-  def add(_a, _b), do: "NIF library not loaded"
-end
-```
-
-The `Expp` module handles `@on_load` and `:erlang.load_nif` automatically.
-
----
-
-## Build
-
-```sh
-make              # Build expp.so
-mix test          # Run tests
-mix format        # Format Elixir code
-```
-
-Custom Makefile (e.g. with a C++ compiler and `-I$(ERLANG_PATH)`):
-
-```make
-CFLAGS = -std=c++23 -fPIC -I$(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])])' -s init stop -noshell)
-LDFLAGS = -shared
-
-my_nif.so: my_nif.cpp expp.hpp
- $(CXX) $(CFLAGS) $(LDFLAGS) -o $@ my_nif.cpp
-```
-
-On macOS add `-undefined dynamic_lookup` to `LDFLAGS`.
-
----
-
-## Requirements
-
-- C++23 compiler (coroutines, concepts, `std::expected`)
-- Erlang/OTP headers (`erl_nif.h`)
-- Elixir ≥ 1.15 (optional, for the Elixir wrapper)
 
 ---
 
