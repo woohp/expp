@@ -4,6 +4,7 @@ ColumnLimit: 120
 UseTab: Never
 NamespaceIndentation: None
 AccessModifierOffset: -4
+DerivePointerAlignment: false
 PointerAlignment: Left
 ReferenceAlignment: Pointer
 
@@ -28,16 +29,18 @@ BreakAfterOpenBracketBracedList: true
 BreakAfterOpenBracketFunction: true
 BreakAfterOpenBracketIf: true
 BreakBeforeCloseBracketBracedList: true
-BreakConstructorInitializers: BeforeComma
+BreakConstructorInitializers: AfterColon
 BreakTemplateDeclarations: Yes
-AllowShortIfStatementsOnASingleLine: false
+PackConstructorInitializers: Never
+AllowShortIfStatementsOnASingleLine: Never
 AllowShortLoopsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: Empty
 AllowShortBlocksOnASingleLine: Empty
 AllowShortEnumsOnASingleLine: false
 AllowShortNamespacesOnASingleLine: false
-BinPackParameters: false
+BinPackParameters: OnePerLine
 BinPackArguments: false
+SpaceBeforeCpp11BracedList: false
 
 KeepEmptyLines:
     AtStartOfBlock: false

@@ -21,8 +21,8 @@ struct erl_error : erl_error_base
 {
     T error_value;
 
-    constexpr explicit erl_error(const T& error_value)
-        : error_value(error_value)
+    constexpr explicit erl_error(const T& error_value) :
+        error_value(error_value)
     {}
 
     ERL_NIF_TERM get_term(ErlNifEnv* env) const

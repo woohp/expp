@@ -99,12 +99,12 @@ public:
     using pointer = typename generator_promise<T>::pointer_type;
 
     // Iterator needs to be default-constructible to satisfy the Range concept.
-    generator_iterator() noexcept
-        : m_coroutine(nullptr)
+    generator_iterator() noexcept :
+        m_coroutine(nullptr)
     {}
 
-    explicit generator_iterator(coroutine_handle coroutine) noexcept
-        : m_coroutine(coroutine)
+    explicit generator_iterator(coroutine_handle coroutine) noexcept :
+        m_coroutine(coroutine)
     {}
 
     friend bool operator==(const generator_iterator& it, generator_sentinel) noexcept
@@ -166,12 +166,12 @@ public:
     using promise_type = detail::generator_promise<T>;
     using iterator = detail::generator_iterator<T>;
 
-    generator() noexcept
-        : m_coroutine(nullptr)
+    generator() noexcept :
+        m_coroutine(nullptr)
     {}
 
-    generator(generator&& other) noexcept
-        : m_coroutine(other.m_coroutine)
+    generator(generator&& other) noexcept :
+        m_coroutine(other.m_coroutine)
     {
         other.m_coroutine = nullptr;
     }
@@ -219,8 +219,8 @@ public:
 private:
     friend class detail::generator_promise<T>;
 
-    explicit generator(std::coroutine_handle<promise_type> coroutine) noexcept
-        : m_coroutine(coroutine)
+    explicit generator(std::coroutine_handle<promise_type> coroutine) noexcept :
+        m_coroutine(coroutine)
     {}
 
     std::coroutine_handle<promise_type> m_coroutine;

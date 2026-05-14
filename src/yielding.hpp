@@ -144,8 +144,8 @@ struct yielding_resource_impl : yielding_resource_base
     GeneratorType coro;
     std::optional<typename GeneratorType::iterator> it;
 
-    explicit yielding_resource_impl(GeneratorType&& c)
-        : coro(std::move(c))
+    explicit yielding_resource_impl(GeneratorType&& c) :
+        coro(std::move(c))
     {}
 
     ERL_NIF_TERM step(ErlNifEnv* env) override

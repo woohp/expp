@@ -20,8 +20,8 @@ class scope_exit
     F f;
 
 public:
-    explicit scope_exit(F&& f)
-        : f(std::forward<F>(f))
+    explicit scope_exit(F&& f) :
+        f(std::forward<F>(f))
     {}
 
     scope_exit(scope_exit&& other) = delete;
