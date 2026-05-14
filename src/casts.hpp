@@ -57,9 +57,9 @@ struct type_cast<term>
 
 inline std::string format_term(ERL_NIF_TERM term)
 {
-    char buffer[100];
-    int written_len = enif_snprintf(buffer, sizeof(buffer), "%T...", term);
-    return std::string { buffer, static_cast<std::size_t>(written_len) };
+    char buffer[256];
+    int would_have_written = enif_snprintf(buffer, sizeof(buffer), "%T", term);
+    return std::string { buffer, std::min(static_cast<std::size_t>(would_have_written), sizeof(buffer) - 1) };
 }
 
 
@@ -231,9 +231,9 @@ struct type_cast<atom>
         unsigned len;
         if (!enif_get_atom_length(env, term, &len, ERL_NIF_LATIN1))
             throw std::invalid_argument("expected an atom, got: " + format_term(term));
-        std::string s(len, ' ');
+        std::string s(len, '\0');
 
-        if (enif_get_atom(env, term, &s[0], len + 1, ERL_NIF_LATIN1) != int(len + 1))
+        if (enif_get_atom(env, term, s.data(), len + 1, ERL_NIF_LATIN1) != int(len + 1))
             throw std::invalid_argument("expected an atom, got: " + format_term(term));
 
         return atom { s };
