@@ -272,9 +272,3 @@ expp::yielding<int> process_items(int n)
 ```
 
 Restrictions: no reference, `binary`, or `string_view` arguments (their backing storage may be invalidated across resumptions).
-
----
-
-## Example
-
-See [`examples/my_mod/`](examples/my_mod) for a complete end-to-end project.
