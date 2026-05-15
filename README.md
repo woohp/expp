@@ -17,7 +17,7 @@ MODULE(
 defmodule MyMod do
   use Expp, ext: "./expp"
 
-  def add(_a, _b), do: "NIF library not loaded"
+  def add(_a, _b), do: :erlang.nif_error(:not_loaded)
 end
 ```
 
@@ -90,7 +90,7 @@ Write the Elixir module in `lib/my_nif.ex`:
 defmodule MyNif do
   use Expp, ext: "./priv/my_nif"
 
-  def add(_a, _b), do: "NIF library not loaded"
+  def add(_a, _b), do: :erlang.nif_error(:not_loaded)
 end
 ```
 
