@@ -57,24 +57,24 @@ public:
 
     constexpr std::suspend_always initial_suspend() const noexcept
     {
-        return { };
+        return {};
     }
     constexpr std::suspend_always final_suspend() const noexcept
     {
-        return { };
+        return {};
     }
 
     template <typename U = T, std::enable_if_t<!std::is_rvalue_reference<U>::value, int> = 0>
     std::suspend_always yield_value(std::remove_reference_t<T>& value) noexcept
     {
         m_value = std::addressof(value);
-        return { };
+        return {};
     }
 
     std::suspend_always yield_value(std::remove_reference_t<T>&& value) noexcept
     {
         m_value = std::addressof(value);
-        return { };
+        return {};
     }
 
     void unhandled_exception()
@@ -82,7 +82,7 @@ public:
         m_exception = std::current_exception();
     }
 
-    void return_void() { }
+    void return_void() {}
 
     reference_type value() const noexcept
     {
@@ -107,7 +107,7 @@ private:
 };
 
 struct generator_sentinel
-{ };
+{};
 
 template <typename T>
 class generator_iterator
@@ -123,13 +123,13 @@ public:
     using pointer = typename generator_promise<T>::pointer_type;
 
     // Iterator needs to be default-constructible to satisfy the Range concept.
-    generator_iterator() noexcept
-        : m_coroutine(nullptr)
-    { }
+    generator_iterator() noexcept :
+        m_coroutine(nullptr)
+    {}
 
-    explicit generator_iterator(coroutine_handle coroutine) noexcept
-        : m_coroutine(coroutine)
-    { }
+    explicit generator_iterator(coroutine_handle coroutine) noexcept :
+        m_coroutine(coroutine)
+    {}
 
     friend bool operator==(const generator_iterator& it, generator_sentinel) noexcept
     {
@@ -181,7 +181,7 @@ public:
 private:
     coroutine_handle m_coroutine;
 };
-}
+}  // namespace detail
 
 template <typename T>
 class [[nodiscard]] generator
@@ -190,12 +190,12 @@ public:
     using promise_type = detail::generator_promise<T>;
     using iterator = detail::generator_iterator<T>;
 
-    generator() noexcept
-        : m_coroutine(nullptr)
-    { }
+    generator() noexcept :
+        m_coroutine(nullptr)
+    {}
 
-    generator(generator&& other) noexcept
-        : m_coroutine(other.m_coroutine)
+    generator(generator&& other) noexcept :
+        m_coroutine(other.m_coroutine)
     {
         other.m_coroutine = nullptr;
     }
@@ -227,12 +227,12 @@ public:
             }
         }
 
-        return iterator { m_coroutine };
+        return iterator{m_coroutine};
     }
 
     detail::generator_sentinel end() noexcept
     {
-        return detail::generator_sentinel { };
+        return detail::generator_sentinel{};
     }
 
     void swap(generator& other) noexcept
@@ -243,9 +243,9 @@ public:
 private:
     friend class detail::generator_promise<T>;
 
-    explicit generator(std::coroutine_handle<promise_type> coroutine) noexcept
-        : m_coroutine(coroutine)
-    { }
+    explicit generator(std::coroutine_handle<promise_type> coroutine) noexcept :
+        m_coroutine(coroutine)
+    {}
 
     std::coroutine_handle<promise_type> m_coroutine;
 };
@@ -262,9 +262,9 @@ template <typename T>
 generator<T> generator_promise<T>::get_return_object() noexcept
 {
     using coroutine_handle = std::coroutine_handle<generator_promise<T>>;
-    return generator<T> { coroutine_handle::from_promise(*this) };
+    return generator<T>{coroutine_handle::from_promise(*this)};
 }
-}
+}  // namespace detail
 
 template <typename FUNC, typename T>
 generator<std::invoke_result_t<FUNC&, typename generator<T>::iterator::reference>> fmap(FUNC func, generator<T> source)
@@ -274,7 +274,7 @@ generator<std::invoke_result_t<FUNC&, typename generator<T>::iterator::reference
         co_yield std::invoke(func, static_cast<decltype(value)>(value));
     }
 }
-}
+}  // namespace cppcoro
 
 #endif
 
@@ -294,13 +294,13 @@ namespace expp
 struct atom
 {
 private:
-    atom(const char* name, std::size_t len)
-        : name(name, len)
-    { }
+    atom(const char* name, std::size_t len) :
+        name(name, len)
+    {}
 
-    explicit atom(std::string name)
-        : name(std::move(name))
-    { }
+    explicit atom(std::string name) :
+        name(std::move(name))
+    {}
 
     friend atom operator""_atom(const char* s, std::size_t len);
 
@@ -333,9 +333,9 @@ public:
 
 inline atom operator""_atom(const char* s, std::size_t len)
 {
-    return atom { s, len };
+    return atom{s, len};
 }
-}
+}  // namespace expp
 
 // --- binary.hpp ---
 
@@ -361,14 +361,14 @@ public:
     explicit binary(size_t size)
     {
         if (!enif_alloc_binary(size, this))
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
     }
 
     template <size_t N>
     explicit binary(const char (&str)[N])
     {
         if (!enif_alloc_binary(N - 1, this))
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
         std::copy_n(str, N - 1, this->data);
     }
 
@@ -389,7 +389,7 @@ public:
         requires((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
     static binary from_bytes(const T* data, size_t size)
     {
-        binary b { size };
+        binary b{size};
         std::copy_n(data, size, b.data);
         return b;
     }
@@ -427,11 +427,11 @@ public:
 
 inline binary operator""_binary(const char* s, std::size_t len)
 {
-    binary binary_info { len };  // constructor checks allocation and throws on failure
+    binary binary_info{len};  // constructor checks allocation and throws on failure
     std::copy_n(s, len, binary_info.data);
     return binary_info;
 }
-}
+}  // namespace expp
 
 // --- resource.hpp ---
 
@@ -439,7 +439,7 @@ inline binary operator""_binary(const char* s, std::size_t len)
 namespace expp
 {
 template <typename T, typename... Args>
-inline constexpr bool is_brace_constructible_v = requires { T { std::declval<Args>()... }; };
+inline constexpr bool is_brace_constructible_v = requires { T{std::declval<Args>()...}; };
 
 
 template <typename T>
@@ -453,30 +453,30 @@ class resource
 
     friend struct type_cast<resource<T>>;
 
-    resource(ErlNifEnv* env, ERL_NIF_TERM term)
-        : env(env)
-        , term(term)
-        , objp(nullptr)
-        , owns_(false)
-    { }
+    resource(ErlNifEnv* env, ERL_NIF_TERM term) :
+        env(env),
+        term(term),
+        objp(nullptr),
+        owns_(false)
+    {}
 
-    resource(T* objp)
-        : env(nullptr)
-        , term(0)
-        , objp(objp)
-        , owns_(true)
-    { }
+    resource(T* objp) :
+        env(nullptr),
+        term(0),
+        objp(objp),
+        owns_(true)
+    {}
 
 public:
     typedef T type;
 
     resource(const resource<T>&) = delete;
 
-    resource(resource<T>&& other)
-        : env(other.env)
-        , term(other.term)
-        , objp(other.objp)
-        , owns_(other.owns_)
+    resource(resource<T>&& other) :
+        env(other.env),
+        term(other.term),
+        objp(other.objp),
+        owns_(other.owns_)
     {
         other.objp = nullptr;
         other.owns_ = false;
@@ -504,7 +504,7 @@ public:
     {
         void* buf = enif_alloc_resource(resource<T>::resource_type, sizeof(T));
         if (!buf)
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
 
         struct alloc_guard
         {
@@ -518,17 +518,17 @@ public:
             {
                 ptr = nullptr;
             }
-        } guard { buf };
+        } guard{buf};
 
-        new (buf) T { std::forward<Args>(args)... };
+        new (buf) T{std::forward<Args>(args)...};
         guard.dismiss();
-        return resource<T> { static_cast<T*>(buf) };
+        return resource<T>{static_cast<T*>(buf)};
     }
 
     static void init(ErlNifEnv* env, const char* name)
     {
-        resource<T>::resource_type
-            = enif_open_resource_type(env, nullptr, name, resource<T>::destructor, ERL_NIF_RT_CREATE, nullptr);
+        resource<T>::resource_type =
+            enif_open_resource_type(env, nullptr, name, resource<T>::destructor, ERL_NIF_RT_CREATE, nullptr);
         if (!resource<T>::resource_type)
             throw std::runtime_error(std::string("failed to open NIF resource type: ") + name);
     }
@@ -545,7 +545,7 @@ public:
 template <typename T>
     requires std::destructible<T>
 ErlNifResourceType* resource<T>::resource_type = nullptr;
-}
+}  // namespace expp
 
 // --- casts.hpp ---
 
@@ -578,7 +578,7 @@ struct type_cast<term>
 {
     static term from_term(ErlNifEnv*, ERL_NIF_TERM t)
     {
-        return term { t };
+        return term{t};
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv*, term t)
@@ -590,9 +590,9 @@ struct type_cast<term>
 
 inline std::string format_term(ERL_NIF_TERM term)
 {
-    char buffer[100];
-    int written_len = enif_snprintf(buffer, sizeof(buffer), "%T...", term);
-    return std::string { buffer, static_cast<std::size_t>(written_len) };
+    char buffer[256];
+    int would_have_written = enif_snprintf(buffer, sizeof(buffer), "%T", term);
+    return std::string{buffer, std::min(static_cast<std::size_t>(would_have_written), sizeof(buffer) - 1)};
 }
 
 
@@ -702,7 +702,7 @@ struct type_cast<std::string>
     {
         ErlNifBinary binary_info;
         if (!enif_alloc_binary(s.size(), &binary_info))
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
     }
@@ -724,7 +724,7 @@ struct type_cast<std::string_view>
     {
         ErlNifBinary binary_info;
         if (!enif_alloc_binary(s.size(), &binary_info))
-            throw std::bad_alloc { };
+            throw std::bad_alloc{};
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
     }
@@ -764,12 +764,12 @@ struct type_cast<atom>
         unsigned len;
         if (!enif_get_atom_length(env, term, &len, ERL_NIF_LATIN1))
             throw std::invalid_argument("expected an atom, got: " + format_term(term));
-        std::string s(len, ' ');
+        std::string s(len, '\0');
 
-        if (enif_get_atom(env, term, &s[0], len + 1, ERL_NIF_LATIN1) != int(len + 1))
+        if (enif_get_atom(env, term, s.data(), len + 1, ERL_NIF_LATIN1) != int(len + 1))
             throw std::invalid_argument("expected an atom, got: " + format_term(term));
 
-        return atom { s };
+        return atom{s};
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const atom& a) noexcept
@@ -849,8 +849,8 @@ private:
     }
 
     template <std::size_t... I>
-    constexpr static ERL_NIF_TERM
-    to_term_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
+    constexpr static ERL_NIF_TERM to_term_impl(
+        ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
     {
         return enif_make_tuple(
             env, std::tuple_size_v<tuple_type>, type_cast<std::decay_t<Args>>::to_term(env, std::get<I>(items))...);
@@ -865,14 +865,14 @@ public:
             throw std::invalid_argument("expected a tuple, got: " + format_term(term));
         if (arity != static_cast<int>(sizeof...(Args)))
             throw std::invalid_argument(
-                "expected tuple arity " + std::to_string(sizeof...(Args)) + ", got " + std::to_string(arity) + ": "
-                + format_term(term));
-        return from_term_impl(env, tup_array, std::index_sequence_for<Args...> { });
+                "expected tuple arity " + std::to_string(sizeof...(Args)) + ", got " + std::to_string(arity) + ": " +
+                format_term(term));
+        return from_term_impl(env, tup_array, std::index_sequence_for<Args...>{});
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const tuple_type& items) noexcept
     {
-        return to_term_impl(env, items, std::index_sequence_for<Args...> { });
+        return to_term_impl(env, items, std::index_sequence_for<Args...>{});
     }
 };
 
@@ -971,7 +971,7 @@ struct type_cast<resource<T>>
 {
     static resource<T> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return resource<T> { env, term };
+        return resource<T>{env, term};
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const resource<T>& res)
@@ -982,7 +982,7 @@ struct type_cast<resource<T>>
         return enif_make_resource(env, res.objp);
     }
 };
-}
+}  // namespace expp
 
 // --- ext_types.hpp ---
 
@@ -1001,9 +1001,9 @@ struct erl_error : erl_error_base
 {
     T error_value;
 
-    constexpr explicit erl_error(const T& error_value)
-        : error_value(error_value)
-    { }
+    constexpr explicit erl_error(const T& error_value) :
+        error_value(error_value)
+    {}
 
     ERL_NIF_TERM get_term(ErlNifEnv* env) const
     {
@@ -1017,11 +1017,14 @@ namespace exceptions
 {
 inline ERL_NIF_TERM raise_error_with_message(ErlNifEnv* env, const char* module_name, std::string_view message)
 {
-    ERL_NIF_TERM keys[3]
-        = { enif_make_atom(env, "__struct__"), enif_make_atom(env, "__exception__"), enif_make_atom(env, "message") };
-    ERL_NIF_TERM values[3] = { enif_make_atom(env, module_name),
-                               enif_make_atom(env, "true"),
-                               type_cast<std::string_view>::to_term(env, message) };
+    ERL_NIF_TERM keys[3] = {
+        enif_make_atom(env, "__struct__"), enif_make_atom(env, "__exception__"), enif_make_atom(env, "message")
+    };
+    ERL_NIF_TERM values[3] = {
+        enif_make_atom(env, module_name),
+        enif_make_atom(env, "true"),
+        type_cast<std::string_view>::to_term(env, message)
+    };
 
     ERL_NIF_TERM map;
     if (!enif_make_map_from_arrays(env, keys, values, 3, &map))
@@ -1041,8 +1044,8 @@ inline ERL_NIF_TERM raise_runtime_error(ErlNifEnv* env, std::string_view message
 {
     return raise_error_with_message(env, "Elixir.RuntimeError", message);
 }
-}
-}
+}  // namespace exceptions
+}  // namespace expp
 
 // --- stl.hpp ---
 
@@ -1050,8 +1053,8 @@ inline ERL_NIF_TERM raise_runtime_error(ErlNifEnv* env, std::string_view message
 namespace expp
 {
 template <typename T>
-concept InnerType = (std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>)
-    && (type_castable<T> || std::is_same_v<T, std::byte>);
+concept InnerType = (std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>) &&
+                    (type_castable<T> || std::is_same_v<T, std::byte>);
 
 
 template <class F>
@@ -1060,9 +1063,9 @@ class scope_exit
     F f;
 
 public:
-    explicit scope_exit(F&& f)
-        : f(std::forward<F>(f))
-    { }
+    explicit scope_exit(F&& f) :
+        f(std::forward<F>(f))
+    {}
 
     scope_exit(scope_exit&& other) = delete;
 
@@ -1123,7 +1126,7 @@ public:
         {
             ErlNifBinary binary_info;
             if (!enif_alloc_binary(items.size(), &binary_info))
-                throw std::bad_alloc { };
+                throw std::bad_alloc{};
             std::copy_n(reinterpret_cast<const unsigned char*>(items.data()), items.size(), binary_info.data);
             return enif_make_binary(env, &binary_info);
         }
@@ -1284,7 +1287,7 @@ ERL_NIF_TERM encode_multimap(ErlNifEnv* env, const Map& _map)
     return enif_make_list_from_array(env, terms.data(), static_cast<unsigned>(terms.size()));
 }
 
-}
+}  // namespace detail
 
 
 template <InnerType K, InnerType V>
@@ -1319,7 +1322,7 @@ struct type_cast<std::unordered_multimap<K, V>>
         return detail::encode_multimap(env, _map);
     }
 };
-}
+}  // namespace expp
 
 // --- yielding.hpp ---
 
@@ -1332,19 +1335,19 @@ namespace expp
 // are conservatively rejected in yielding NIF arguments.
 template <typename T>
 struct is_yield_persistent : std::false_type
-{ };
+{};
 
 
 namespace detail
 {
 template <typename T>
 struct is_resource_impl : std::false_type
-{ };
+{};
 
 template <typename T>
 struct is_resource_impl<resource<T>> : std::true_type
-{ };
-}
+{};
+}  // namespace detail
 
 
 // consteval check: true if T owns its data and is safe to persist
@@ -1406,12 +1409,12 @@ using yielding = cppcoro::generator<std::optional<T>>;
 
 template <typename T>
 struct is_yielding : std::false_type
-{ };
+{};
 
 
 template <typename T>
 struct is_yielding<cppcoro::generator<std::optional<T>>> : std::true_type
-{ };
+{};
 
 
 template <typename T>
@@ -1445,12 +1448,11 @@ struct yielding_timer
 // instead of type-punning through resource<yielding<int>>.
 struct yielding_resource_base
 {
-    // Dirty flag used when rescheduling continuations. Stored here so that
-    // coroutine_step can propagate the same scheduler class as the initial call.
     int dirty_flags = 0;
 
     virtual ~yielding_resource_base() = default;
     virtual ERL_NIF_TERM step(ErlNifEnv* env) = 0;
+    virtual bool is_exhausted() = 0;
 };
 
 
@@ -1460,9 +1462,9 @@ struct yielding_resource_impl : yielding_resource_base
     GeneratorType coro;
     std::optional<typename GeneratorType::iterator> it;
 
-    explicit yielding_resource_impl(GeneratorType&& c)
-        : coro(std::move(c))
-    { }
+    explicit yielding_resource_impl(GeneratorType&& c) :
+        coro(std::move(c))
+    {}
 
     ERL_NIF_TERM step(ErlNifEnv* env) override
     {
@@ -1474,13 +1476,13 @@ struct yielding_resource_impl : yielding_resource_base
                 ++(*it);
 
             if (*it == coro.end())
-                return exceptions::raise_runtime_error(env, "yielding NIF ended without final result");
+                return 0;
 
             const auto& out = **it;
             if (out)
                 return type_cast<std::decay_t<decltype(*out)>>::to_term(env, *out);
             else
-                return 0;  // indicates that it needs to be scheduled for another step
+                return 0;
         }
         catch (const erl_error_base& e)
         {
@@ -1491,11 +1493,16 @@ struct yielding_resource_impl : yielding_resource_base
             return exceptions::raise_runtime_error(env, e.what());
         }
     }
+
+    bool is_exhausted() override
+    {
+        return *it == coro.end();
+    }
 };
 
 
 using yielding_resource_t = resource<std::unique_ptr<yielding_resource_base>>;
-}
+}  // namespace expp
 
 // --- expp.hpp ---
 
@@ -1521,7 +1528,7 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     template <func_type fn>
     constexpr static R apply(ErlNifEnv* env, const ERL_NIF_TERM argv[])
     {
-        return apply_impl<fn>(env, argv, std::make_index_sequence<nargs> { });
+        return apply_impl<fn>(env, argv, std::make_index_sequence<nargs>{});
     }
 
     constexpr static bool any_args_by_reference()
@@ -1549,9 +1556,9 @@ inline ERL_NIF_TERM coroutine_step(ErlNifEnv* env, int, const ERL_NIF_TERM argv[
 
     if (ERL_NIF_TERM step_result = impl_ptr->step(env); step_result)
         return step_result;
+    else if (impl_ptr->is_exhausted())
+        return exceptions::raise_runtime_error(env, "yielding NIF ended without final result");
     else
-        // Propagate the original dirty flag so continuations run on the same
-        // scheduler class as the initial NIF call.
         return enif_schedule_nif(env, "coroutine_step", impl_ptr->dirty_flags, coroutine_step, 1, argv);
 }
 
@@ -1591,21 +1598,19 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                 "are not allowed. Specialize expp::is_yield_persistent<T> = std::true_type "
                 "for fully-owned custom decoded types.");
 
-            // Wrap the generator in a type-erased impl and store the dirty flag
-            // so that coroutine_step can propagate it to all future continuations.
             auto impl = std::make_unique<yielding_resource_impl<return_type>>(std::move(ret));
             impl->dirty_flags = dirty_flags;
 
-            // Try to step the generator one time
             if (auto step_output = impl->step(env); step_output)
                 return step_output;
+            else if (impl->is_exhausted())
+                return exceptions::raise_runtime_error(env, "yielding NIF must contain at least one co_yield");
             else
             {
-                // Allocate a resource for the generator and schedule it for later execution
                 auto res = yielding_resource_t::alloc(std::move(impl));
                 ERL_NIF_TERM resource_term = type_cast<yielding_resource_t>::to_term(env, res);
-                ERL_NIF_TERM out[] = { resource_term };
-                return enif_schedule_nif(env, "coroutine_step", dirty_flags, coroutine_step, 1, out);
+                ERL_NIF_TERM argv[] = {resource_term};
+                return enif_schedule_nif(env, "coroutine_step", dirty_flags, coroutine_step, 1, argv);
             }
         }
         else
@@ -1652,7 +1657,7 @@ consteval ErlNifFunc def_impl(const char* name)
     };
     return entry;
 }
-}
+}  // namespace expp
 
 
 /*
@@ -1670,6 +1675,6 @@ We want to be able to write:
 
 
 #define MODULE(NAME, LOAD, UPGRADE, UNLOAD, ...)                                                                       \
-    ErlNifFunc _nif_funcs[] = { __VA_ARGS__ };                                                                         \
+    ErlNifFunc _nif_funcs[] = {__VA_ARGS__};                                                                           \
     ERL_NIF_INIT(NAME, _nif_funcs, LOAD, nullptr, UPGRADE, UNLOAD)
 
