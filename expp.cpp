@@ -333,6 +333,11 @@ yielding<int> yield_values(int n)
 }
 
 
+yielding<int> yield_exhaustion()
+{
+    co_return;
+}
+
 struct MyPersistentType
 {
     int value;
@@ -445,5 +450,6 @@ MODULE(
     def(dirty_io_test, DirtyFlags::DirtyIO),
     def(named_nif_impl, "named_nif", DirtyFlags::NotDirty),
     def(yield_values, DirtyFlags::NotDirty),
+    def(yield_exhaustion, DirtyFlags::NotDirty),
 
     def(yield_persistent_type, DirtyFlags::NotDirty), )

@@ -59,9 +59,9 @@ inline ERL_NIF_TERM coroutine_step(ErlNifEnv* env, int, const ERL_NIF_TERM argv[
 
     if (ERL_NIF_TERM step_result = impl_ptr->step(env); step_result)
         return step_result;
+    else if (impl_ptr->is_exhausted())
+        return exceptions::raise_runtime_error(env, "yielding NIF ended without final result");
     else
-        // Propagate the original dirty flag so continuations run on the same
-        // scheduler class as the initial NIF call.
         return enif_schedule_nif(env, "coroutine_step", impl_ptr->dirty_flags, coroutine_step, 1, argv);
 }
 
@@ -101,21 +101,19 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                 "are not allowed. Specialize expp::is_yield_persistent<T> = std::true_type "
                 "for fully-owned custom decoded types.");
 
-            // Wrap the generator in a type-erased impl and store the dirty flag
-            // so that coroutine_step can propagate it to all future continuations.
             auto impl = std::make_unique<yielding_resource_impl<return_type>>(std::move(ret));
             impl->dirty_flags = dirty_flags;
 
-            // Try to step the generator one time
             if (auto step_output = impl->step(env); step_output)
                 return step_output;
+            else if (impl->is_exhausted())
+                return exceptions::raise_runtime_error(env, "yielding NIF must contain at least one co_yield");
             else
             {
-                // Allocate a resource for the generator and schedule it for later execution
                 auto res = yielding_resource_t::alloc(std::move(impl));
                 ERL_NIF_TERM resource_term = type_cast<yielding_resource_t>::to_term(env, res);
-                ERL_NIF_TERM out[] = {resource_term};
-                return enif_schedule_nif(env, "coroutine_step", dirty_flags, coroutine_step, 1, out);
+                ERL_NIF_TERM argv[] = {resource_term};
+                return enif_schedule_nif(env, "coroutine_step", dirty_flags, coroutine_step, 1, argv);
             }
         }
         else

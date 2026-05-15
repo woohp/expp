@@ -129,12 +129,11 @@ struct yielding_timer
 // instead of type-punning through resource<yielding<int>>.
 struct yielding_resource_base
 {
-    // Dirty flag used when rescheduling continuations. Stored here so that
-    // coroutine_step can propagate the same scheduler class as the initial call.
     int dirty_flags = 0;
 
     virtual ~yielding_resource_base() = default;
     virtual ERL_NIF_TERM step(ErlNifEnv* env) = 0;
+    virtual bool is_exhausted() = 0;
 };
 
 
@@ -158,13 +157,13 @@ struct yielding_resource_impl : yielding_resource_base
                 ++(*it);
 
             if (*it == coro.end())
-                return exceptions::raise_runtime_error(env, "yielding NIF ended without final result");
+                return 0;
 
             const auto& out = **it;
             if (out)
                 return type_cast<std::decay_t<decltype(*out)>>::to_term(env, *out);
             else
-                return 0;  // indicates that it needs to be scheduled for another step
+                return 0;
         }
         catch (const erl_error_base& e)
         {
@@ -174,6 +173,11 @@ struct yielding_resource_impl : yielding_resource_base
         {
             return exceptions::raise_runtime_error(env, e.what());
         }
+    }
+
+    bool is_exhausted() override
+    {
+        return *it == coro.end();
     }
 };
 

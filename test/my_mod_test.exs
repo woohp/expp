@@ -418,6 +418,12 @@ defmodule MyModTest do
       assert MyMod.yield_values(1) == 0
     end
 
+    test "exhaustion without co_yield raises RuntimeError" do
+      assert_raise RuntimeError, ~r/must contain at least one co_yield/, fn ->
+        MyMod.yield_exhaustion()
+      end
+    end
+
     test "coroutine with simple (pair<int,int>) still works" do
       assert MyMod.simple_coroutine(5) == {4, 16}
     end
