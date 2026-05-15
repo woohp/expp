@@ -1,28 +1,28 @@
-defmodule MyMod.Mixfile do
+defmodule Expp.MixProject do
   use Mix.Project
 
   def project do
+    compilers = if env() == :dev, do: [:elixir_make] ++ Mix.compilers(), else: Mix.compilers()
+
     [
       app: :expp,
       version: "0.1.0",
       elixir: "~> 1.15",
-      start_permanent: Mix.env() == :prod,
+      compilers: compilers,
+      start_permanent: env() == :prod,
       deps: deps()
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
+    [extra_applications: [:logger]]
+  end
+
+  defp deps do
     [
-      extra_applications: [:logger]
+      {:elixir_make, "~> 0.6", only: :dev, runtime: false}
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
-  defp deps do
-    [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"},
-    ]
-  end
+  defp env, do: Mix.env()
 end
