@@ -5,39 +5,51 @@ defmodule MyMod do
 
   use Expp, ext: "./expp"
 
-  def vector_times_int(_v, _i), do: "NIF library not loaded"
-  def vector_char_plus_one(_v), do: "NIF library not loaded"
-  def vector_int8_plus_one(_v), do: "NIF library not loaded"
-  def times2(_m), do: "NIF library not loaded"
-  def times4(_t), do: "NIF library not loaded"
-  def times5(_i), do: "NIF library not loaded"
-  def stringview_identity(_s), do: "NIF library not loaded"
-  def variant_int_and_string(_v), do: "NIF library not loaded"
-  def bool_arguments(_b), do: "NIF library not loaded"
-  def bool_returns(_i), do: "NIF library not loaded"
-  def optional_arguments(_i), do: "NIF library not loaded"
-  def optional_returns(_i), do: "NIF library not loaded"
-  def get_expected(_i), do: "NIF library not loaded"
-  def get_expected_stringview_error(_i), do: "NIF library not loaded"
-  def atom_arguments(_a), do: "NIF library not loaded"
-  def atom_returns(_i), do: "NIF library not loaded"
-  def simple_coroutine(_i), do: "NIF library not loaded"
-  def nested_vector(_v), do: "NIF library not loaded"
-  def ordered_map_test(_m), do: "NIF library not loaded"
-  def complex_nested_map(_m), do: "NIF library not loaded"
-  def byte_vector_test(_v), do: "NIF library not loaded"
-  def make_resource(_i), do: "NIF library not loaded"
-  def make_resource_incremented(_i), do: "NIF library not loaded"
-  def use_resource(_r), do: "NIF library not loaded"
-  def throw_error(_i), do: "NIF library not loaded"
-  def dirty_cpu_test(_i), do: "NIF library not loaded"
-  def binary_identity(_b), do: "NIF library not loaded"
-  def term_identity(_t), do: "NIF library not loaded"
-  def raise_runtime_error_test(), do: "NIF library not loaded"
-  def int8_identity(_x), do: "NIF library not loaded"
-  def uint8_identity(_x), do: "NIF library not loaded"
-  def int16_identity(_x), do: "NIF library not loaded"
-  def float_identity(_x), do: "NIF library not loaded"
-  def multimap_test(_m), do: "NIF library not loaded"
-  def unordered_multimap_test(_m), do: "NIF library not loaded"
+  def vector_times_int(_v, _i), do: :erlang.nif_error(:not_loaded)
+  def vector_char_plus_one(_v), do: :erlang.nif_error(:not_loaded)
+  def vector_int8_plus_one(_v), do: :erlang.nif_error(:not_loaded)
+  def times2(_m), do: :erlang.nif_error(:not_loaded)
+  def times4(_t), do: :erlang.nif_error(:not_loaded)
+  def times5(_i), do: :erlang.nif_error(:not_loaded)
+  def stringview_identity(_s), do: :erlang.nif_error(:not_loaded)
+  def variant_int_and_string(_v), do: :erlang.nif_error(:not_loaded)
+  def bool_arguments(_b), do: :erlang.nif_error(:not_loaded)
+  def bool_returns(_i), do: :erlang.nif_error(:not_loaded)
+  def optional_arguments(_i), do: :erlang.nif_error(:not_loaded)
+  def optional_returns(_i), do: :erlang.nif_error(:not_loaded)
+  def get_expected(_i), do: :erlang.nif_error(:not_loaded)
+  def get_expected_stringview_error(_i), do: :erlang.nif_error(:not_loaded)
+  def atom_arguments(_a), do: :erlang.nif_error(:not_loaded)
+  def atom_returns(_i), do: :erlang.nif_error(:not_loaded)
+  def simple_coroutine(_i), do: :erlang.nif_error(:not_loaded)
+  def nested_vector(_v), do: :erlang.nif_error(:not_loaded)
+  def ordered_map_test(_m), do: :erlang.nif_error(:not_loaded)
+  def complex_nested_map(_m), do: :erlang.nif_error(:not_loaded)
+  def byte_vector_test(_v), do: :erlang.nif_error(:not_loaded)
+  def make_resource(_i), do: :erlang.nif_error(:not_loaded)
+  def make_resource_incremented(_i), do: :erlang.nif_error(:not_loaded)
+  def use_resource(_r), do: :erlang.nif_error(:not_loaded)
+  def throw_error(_i), do: :erlang.nif_error(:not_loaded)
+  def dirty_cpu_test(_i), do: :erlang.nif_error(:not_loaded)
+  def binary_identity(_b), do: :erlang.nif_error(:not_loaded)
+  def term_identity(_t), do: :erlang.nif_error(:not_loaded)
+  def raise_runtime_error_test(), do: :erlang.nif_error(:not_loaded)
+  def int8_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def uint8_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def int16_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def float_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def multimap_test(_m), do: :erlang.nif_error(:not_loaded)
+  def unordered_multimap_test(_m), do: :erlang.nif_error(:not_loaded)
+  def int_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def int32_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def uint32_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def int64_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def uint64_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def double_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def string_identity(_s), do: :erlang.nif_error(:not_loaded)
+  def dirty_io_test(_i), do: :erlang.nif_error(:not_loaded)
+  def named_nif(_x), do: :erlang.nif_error(:not_loaded)
+  def yield_values(_n), do: :erlang.nif_error(:not_loaded)
+
+  def yield_persistent_type(_n), do: :erlang.nif_error(:not_loaded)
 end

@@ -267,6 +267,126 @@ unordered_multimap<string, int> unordered_multimap_test(unordered_multimap<strin
 }
 
 
+int int_identity(int x)
+{
+    return x;
+}
+
+
+int32_t int32_identity(int32_t x)
+{
+    return x;
+}
+
+
+uint32_t uint32_identity(uint32_t x)
+{
+    return x;
+}
+
+
+int64_t int64_identity(int64_t x)
+{
+    return x;
+}
+
+
+uint64_t uint64_identity(uint64_t x)
+{
+    return x;
+}
+
+
+double double_identity(double x)
+{
+    return x;
+}
+
+
+std::string string_identity(std::string s)
+{
+    return s;
+}
+
+
+int dirty_io_test(int i)
+{
+    return i * 100;
+}
+
+
+int named_nif_impl(int x)
+{
+    return x + 1;
+}
+
+
+yielding<int> yield_values(int n)
+{
+    for (int i = 0; i < n; i++)
+    {
+        if (i < n - 1)
+            co_yield nullopt;
+        else
+            co_yield i * 10;
+    }
+}
+
+
+struct MyPersistentType
+{
+    int value;
+    vector<int> data;
+};
+
+
+template <>
+struct expp::is_yield_persistent<MyPersistentType> : std::true_type
+{};
+
+
+template <>
+struct expp::type_cast<MyPersistentType>
+{
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const MyPersistentType& t)
+    {
+        return enif_make_tuple2(
+            env,
+            enif_make_int(env, t.value),
+            type_cast<vector<int>>::to_term(env, t.data));
+    }
+
+    static MyPersistentType from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        const ERL_NIF_TERM* tup_array;
+        int arity;
+        if (!enif_get_tuple(env, term, &arity, &tup_array) || arity != 2)
+            throw std::invalid_argument("expected {int, list}");
+        return MyPersistentType{
+            type_cast<int>::from_term(env, tup_array[0]),
+            type_cast<vector<int>>::from_term(env, tup_array[1])};
+    }
+};
+
+
+yielding<MyPersistentType> yield_persistent_type(int n)
+{
+    for (int i = 0; i < n; i++)
+    {
+        if (i < n - 1)
+            co_yield std::nullopt;
+        else
+            co_yield MyPersistentType{i, {1, 2, 3}};
+    }
+}
+
+
+int add_resource_use_count(resource<MyResource> res)
+{
+    return res.get().value;
+}
+
+
 int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 {
     yielding_resource_t::init(env, "yielding_generator");
@@ -314,4 +434,16 @@ MODULE(
     def(int16_identity, DirtyFlags::NotDirty),
     def(float_identity, DirtyFlags::NotDirty),
     def(multimap_test, DirtyFlags::NotDirty),
-    def(unordered_multimap_test, DirtyFlags::NotDirty), )
+    def(unordered_multimap_test, DirtyFlags::NotDirty),
+    def(int_identity, DirtyFlags::NotDirty),
+    def(int32_identity, DirtyFlags::NotDirty),
+    def(uint32_identity, DirtyFlags::NotDirty),
+    def(int64_identity, DirtyFlags::NotDirty),
+    def(uint64_identity, DirtyFlags::NotDirty),
+    def(double_identity, DirtyFlags::NotDirty),
+    def(string_identity, DirtyFlags::NotDirty),
+    def(dirty_io_test, DirtyFlags::DirtyIO),
+    def(named_nif_impl, "named_nif", DirtyFlags::NotDirty),
+    def(yield_values, DirtyFlags::NotDirty),
+
+    def(yield_persistent_type, DirtyFlags::NotDirty), )

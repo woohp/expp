@@ -282,4 +282,235 @@ defmodule MyModTest do
       assert_raise ArgumentError, fn -> MyMod.float_identity(-1.0e39) end
     end
   end
+
+  describe "int identity" do
+    test "valid values" do
+      assert MyMod.int_identity(0) == 0
+      assert MyMod.int_identity(1) == 1
+      assert MyMod.int_identity(-1) == -1
+      assert MyMod.int_identity(2_147_483_647) == 2_147_483_647
+      assert MyMod.int_identity(-2_147_483_648) == -2_147_483_648
+    end
+
+    test "rejects values exceeding 32-bit range" do
+      assert_raise ArgumentError, fn -> MyMod.int_identity(2_147_483_648) end
+      assert_raise ArgumentError, fn -> MyMod.int_identity(-2_147_483_649) end
+    end
+  end
+
+  describe "int32_t identity" do
+    test "valid values" do
+      assert MyMod.int32_identity(0) == 0
+      assert MyMod.int32_identity(2_147_483_647) == 2_147_483_647
+      assert MyMod.int32_identity(-2_147_483_648) == -2_147_483_648
+    end
+
+    test "rejects overflow" do
+      assert_raise ArgumentError, fn -> MyMod.int32_identity(2_147_483_648) end
+      assert_raise ArgumentError, fn -> MyMod.int32_identity(-2_147_483_649) end
+    end
+  end
+
+  describe "uint32_t identity" do
+    test "valid values" do
+      assert MyMod.uint32_identity(0) == 0
+      assert MyMod.uint32_identity(4_294_967_295) == 4_294_967_295
+    end
+
+    test "rejects overflow" do
+      assert_raise ArgumentError, fn -> MyMod.uint32_identity(4_294_967_296) end
+    end
+
+    test "rejects negative values" do
+      assert_raise ArgumentError, fn -> MyMod.uint32_identity(-1) end
+    end
+  end
+
+  describe "int64_t identity" do
+    test "valid values" do
+      assert MyMod.int64_identity(0) == 0
+      assert MyMod.int64_identity(9_223_372_036_854_775_807) == 9_223_372_036_854_775_807
+      assert MyMod.int64_identity(-9_223_372_036_854_775_808) == -9_223_372_036_854_775_808
+    end
+
+    test "rejects overflow" do
+      assert_raise ArgumentError, fn ->
+        MyMod.int64_identity(9_223_372_036_854_775_808)
+      end
+
+      assert_raise ArgumentError, fn ->
+        MyMod.int64_identity(-9_223_372_036_854_775_809)
+      end
+    end
+  end
+
+  describe "uint64_t identity" do
+    test "valid values" do
+      assert MyMod.uint64_identity(0) == 0
+      assert MyMod.uint64_identity(18_446_744_073_709_551_615) == 18_446_744_073_709_551_615
+    end
+
+    test "rejects negative values" do
+      assert_raise ArgumentError, fn -> MyMod.uint64_identity(-1) end
+    end
+  end
+
+  describe "double identity" do
+    test "valid values" do
+      assert MyMod.double_identity(0.0) == 0.0
+      assert MyMod.double_identity(3.141592653589793) == 3.141592653589793
+      assert MyMod.double_identity(-2.71828) == -2.71828
+    end
+
+    test "large values" do
+      assert MyMod.double_identity(1.0e308) == 1.0e308
+      assert MyMod.double_identity(-1.0e308) == -1.0e308
+    end
+
+    test "subnormal values roundtrip" do
+      assert MyMod.double_identity(5.0e-324) == 5.0e-324
+      assert MyMod.double_identity(-5.0e-324) == -5.0e-324
+    end
+  end
+
+  describe "string identity" do
+    test "roundtrip" do
+      assert MyMod.string_identity("hello") == "hello"
+      assert MyMod.string_identity("") == ""
+      assert MyMod.string_identity("a b c") == "a b c"
+    end
+
+    test "unicode" do
+      assert MyMod.string_identity("héllo wörld ©") == "héllo wörld ©"
+    end
+  end
+
+  describe "dirty NIFs" do
+    test "DirtyCPU" do
+      assert MyMod.dirty_cpu_test(5) == 50
+      assert MyMod.dirty_cpu_test(0) == 0
+      assert MyMod.dirty_cpu_test(-3) == -30
+    end
+
+    test "DirtyIO" do
+      assert MyMod.dirty_io_test(7) == 700
+      assert MyMod.dirty_io_test(0) == 0
+      assert MyMod.dirty_io_test(-2) == -200
+    end
+  end
+
+  describe "named NIF" do
+    test "def with explicit name" do
+      assert MyMod.named_nif(5) == 6
+      assert MyMod.named_nif(0) == 1
+      assert MyMod.named_nif(-1) == 0
+    end
+  end
+
+  describe "yielding" do
+    test "multi-step yielding returns final value" do
+      assert MyMod.yield_values(1) == 0
+      assert MyMod.yield_values(3) == 20
+      assert MyMod.yield_values(5) == 40
+    end
+
+    test "yielding with one step returns immediately" do
+      assert MyMod.yield_values(1) == 0
+    end
+
+    test "coroutine with simple (pair<int,int>) still works" do
+      assert MyMod.simple_coroutine(5) == {4, 16}
+    end
+
+    test "persistent custom type in yielding coroutine" do
+      result = MyMod.yield_persistent_type(3)
+      assert result == {2, [1, 2, 3]}
+    end
+
+    test "persistent type with single step" do
+      result = MyMod.yield_persistent_type(1)
+      assert result == {0, [1, 2, 3]}
+    end
+  end
+
+  describe "resource" do
+    test "make and use" do
+      res = MyMod.make_resource(123)
+      assert is_reference(res)
+      assert MyMod.use_resource(res) == 123
+    end
+
+    test "get() on owning handle before release" do
+      res = MyMod.make_resource_incremented(5)
+      assert is_reference(res)
+      assert MyMod.use_resource(res) == 6
+    end
+
+    test "multiple allocations" do
+      res1 = MyMod.make_resource(10)
+      res2 = MyMod.make_resource(20)
+      res3 = MyMod.make_resource(30)
+      assert MyMod.use_resource(res1) == 10
+      assert MyMod.use_resource(res2) == 20
+      assert MyMod.use_resource(res3) == 30
+    end
+
+    test "invalid resource reference raises ArgumentError" do
+      assert_raise ArgumentError, fn ->
+        MyMod.use_resource(:not_a_resource)
+      end
+    end
+
+    test "non-reference argument raises ArgumentError" do
+      assert_raise ArgumentError, fn ->
+        MyMod.use_resource(123)
+      end
+    end
+  end
+
+  describe "NIF library loaded" do
+    test "all NIFs are loaded (fallback raises nif_error)" do
+      assert MyMod.int_identity(1) == 1
+    end
+  end
+
+  describe "Expp module" do
+    test "include_dir/0 returns the expp package root" do
+      dir = Expp.include_dir()
+      assert is_binary(dir)
+      assert String.ends_with?(dir, "expp")
+      assert File.dir?(dir)
+      assert File.exists?(Path.join(dir, "expp.hpp"))
+    end
+  end
+  
+  describe "empty value edge cases" do
+    test "empty binary identity" do
+      assert MyMod.binary_identity("") == ""
+    end
+
+    test "empty string_view identity" do
+      assert MyMod.stringview_identity("") == ""
+    end
+
+    test "empty string identity" do
+      assert MyMod.string_identity("") == ""
+    end
+  end
+  
+  describe "large data" do
+    test "10000-element vector" do
+      input = Enum.to_list(1..10_000)
+      # vector_times_int multiplies each element by 2
+      expected = Enum.map(input, &(&1 * 2))
+      assert MyMod.vector_times_int(input, 2) == expected
+    end
+
+    test "large map" do
+      size = 1000
+      map = for i <- 1..size, into: %{}, do: {i, i}
+      expected = for i <- 1..size, into: %{}, do: {i, i * i}
+      assert MyMod.times2(map) == expected
+    end
+  end
 end
