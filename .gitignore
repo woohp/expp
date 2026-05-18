@@ -28,3 +28,6 @@ my_mod-*.tar
 priv
 *.so
 *.so.*
+
+# Gleam build artifacts
+/build/
