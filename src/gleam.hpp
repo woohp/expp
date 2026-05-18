@@ -38,6 +38,8 @@ struct fixed_string
 template <typename T>
 struct option
 {
+    using value_type = T;
+
     std::optional<T> value;
 
     option() = default;

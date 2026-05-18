@@ -1376,6 +1376,8 @@ struct fixed_string
 template <typename T>
 struct option
 {
+    using value_type = T;
+
     std::optional<T> value;
 
     option() = default;
@@ -1523,6 +1525,15 @@ struct is_yield_persistent : std::false_type
 {};
 
 
+template <typename T>
+consteval bool is_yield_safe();
+
+
+template <gleam::detail::fixed_string Tag, typename... Args>
+struct is_yield_persistent<gleam::case_<Tag, Args...>> : std::bool_constant<(is_yield_safe<Args>() && ...)>
+{};
+
+
 namespace detail
 {
 template <typename T>
@@ -1554,11 +1565,18 @@ consteval bool is_yield_safe()
     if constexpr (detail::is_resource_impl<U>::value)
         return false;
 
-    // Container with value_type (vector, optional, array, map, etc.): check element type.
+    // Container/result-like types with value_type (vector, optional, array, map,
+    // expected, etc.): check contained type. If the type also has error_type,
+    // both success and error payloads must be safe to persist.
     // This is checked before tuple_size so that homogeneous containers (e.g. array<T,N>)
     // don't redundantly iterate every element.
     if constexpr (requires { typename U::value_type; })
-        return is_yield_safe<typename U::value_type>();
+    {
+        if constexpr (requires { typename U::error_type; })
+            return is_yield_safe<typename U::value_type>() && is_yield_safe<typename U::error_type>();
+        else
+            return is_yield_safe<typename U::value_type>();
+    }
 
     // Tuple-like (pair, tuple): check each element individually
     if constexpr (requires { std::tuple_size<U>::value; })

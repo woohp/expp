@@ -122,6 +122,15 @@ auto gleam_tagged_image(int width, int height)
 using gleam_tagged_variant_result =
     variant<gleam::case_<"found", int, string>, gleam::case_<"missing", int>, gleam::case_<"empty">>;
 
+static_assert(is_yield_safe<gleam::option<int>>());
+static_assert(!is_yield_safe<gleam::option<string_view>>());
+static_assert(is_yield_safe<gleam::case_<"found", int, string>>());
+static_assert(!is_yield_safe<gleam::case_<"found", int, string_view>>());
+static_assert(is_yield_safe<gleam_tagged_variant_result>());
+static_assert(is_yield_safe<std::expected<int, string>>());
+static_assert(!is_yield_safe<std::expected<int, string_view>>());
+static_assert(!is_yield_safe<std::expected<string_view, int>>());
+
 
 gleam_tagged_variant_result gleam_tagged_variant(int id)
 {
