@@ -1,7 +1,7 @@
 #!/bin/bash
 
 OUTPUT="expp.hpp"
-SRC_DIR="src"
+SRC_DIR="include/expp"
 
 # Define the order to ensure dependencies are met
 # 1. Forward declarations and basic types

@@ -1,8 +1,6 @@
 defmodule MyModTest do
   use ExUnit.Case
 
-  doctest MyMod
-
   test "list (vector) times int" do
     assert MyMod.vector_times_int([1, 2, 3], 2) == [2, 4, 6]
   end

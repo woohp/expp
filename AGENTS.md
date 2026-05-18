@@ -4,23 +4,25 @@ Header-only C++23 library for creating Erlang/Elixir/Gleam NIFs.
 
 ## Architecture
 
-- **Core C++ headers** live in `src/*.hpp`.
-- **Bundled public header** is root `expp.hpp`, generated from `src/*.hpp` by `./scripts/bundle.sh`.
+- **Core C++ headers** live in `include/expp/*.hpp`.
+- **Bundled public header** is root `expp.hpp`, generated from `include/expp/*.hpp` by `./scripts/bundle.sh`.
 - **Example/test NIF** lives in `expp.cpp` and builds to `expp.so`.
 - **Elixir wrapper/tests** live in `lib/` and `test/`.
+- **Gleam package files** use `gleam.toml` and `src/*.gleam`; do not put C++ headers in `src/`.
 - **Gleam interop** uses an Erlang loader module plus Gleam `@external` declarations.
 
-Do not edit root `expp.hpp` directly. Edit `src/*.hpp`, then regenerate the bundle.
+Do not edit root `expp.hpp` directly. Edit `include/expp/*.hpp`, then regenerate the bundle.
 
 ## Common Commands
 
 ```bash
 make              # Build expp.so
 make clean        # Remove expp.so
-make bundle       # Generates bundled root expp.hpp from individual src files
-make format       # clang-format src/*.hpp/expp.cpp, mix format
+make bundle       # Generates bundled root expp.hpp from include/expp/*.hpp
+make format       # clang-format include/expp/*.hpp/expp.cpp, bundle expp.hpp, mix format
 mix compile       # Compile Elixir project
 mix test          # Run all tests
+gleam check       # Validate Gleam package metadata/module
 mix test test/my_mod_test.exs:6
 mix test --filter vector_times_int
 ```
@@ -32,6 +34,7 @@ make format
 make bundle
 make clean && make
 mix test
+gleam check
 ```
 
 ## C++ Guidelines
@@ -89,7 +92,7 @@ Conversions are BEAM-term based and work across Erlang, Elixir, and Gleam surfac
 
 ## Gleam Interop
 
-- `src/gleam.hpp` contains Gleam-specific term shapes and is included by `src/expp.hpp` / bundled `expp.hpp`.
+- `include/expp/gleam.hpp` contains Gleam-specific term shapes and is included by `include/expp/expp.hpp` / bundled `expp.hpp`.
 - Use `expp::gleam::option<T>` for Gleam `Option(T)`: `none | {some, value}`.
 - Keep `std::optional<T>` as the existing `nil | value` shape.
 - Use `std::expected<T,E>` for Gleam `Result(T,E)`: `{ok, value} | {error, reason}`.
@@ -97,6 +100,7 @@ Conversions are BEAM-term based and work across Erlang, Elixir, and Gleam surfac
 - Use `expp::gleam::case_<"tag", ...>` when declaring a `std::variant` that can return multiple Gleam constructors.
 - Do not add permissive bool/int coercions. Gleam `Bool` maps to C++ `bool`, not `int`.
 - Gleam examples should use an Erlang loader module with `code:priv_dir/1` and `@external(erlang, "loader_module", "nif_name")`.
+- Gleam downstream Makefiles can use `EXPP_INCLUDE_DIR ?= build/packages/expp` after `gleam add expp`.
 
 ## Elixir Interop
 

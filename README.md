@@ -111,11 +111,12 @@ The shared library is compiled to `priv/my_nif.so` during `mix compile` and load
 
 expp works with Gleam through a small Erlang loader module. Use an Erlang module name in `MODULE(...)`, not an Elixir module name.
 
-Create a Gleam project and add the native source:
+Create a Gleam project, add expp as a dependency, and add the native source:
 
 ```sh
 gleam new my_nif
 cd my_nif
+gleam add expp
 mkdir -p c_src priv
 ```
 
@@ -167,11 +168,11 @@ MODULE(
     def(image_size, DirtyFlags::NotDirty))
 ```
 
-Create `Makefile`. Set `EXPP_INCLUDE_DIR` to the directory containing `expp.hpp` when building:
+Create `Makefile`. Gleam dependencies are checked out under `build/packages`, so the default `EXPP_INCLUDE_DIR` points at expp's package directory containing `expp.hpp`:
 
 ```makefile
 ERTS_INCLUDE_DIR ?= $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])])' -s init stop -noshell)
-EXPP_INCLUDE_DIR ?= .
+EXPP_INCLUDE_DIR ?= build/packages/expp
 SO_EXT ?= so
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -188,7 +189,14 @@ clean:
 	$(RM) priv/my_nif.$(SO_EXT)
 ```
 
-Build the NIF:
+Fetch dependencies and build the NIF:
+
+```sh
+gleam deps download
+make
+```
+
+If you are using an unpublished local checkout of expp, override the include path:
 
 ```sh
 make EXPP_INCLUDE_DIR=/path/to/expp

@@ -7,7 +7,7 @@ clean:
 	$(RM) expp.so
 
 format:
-	clang-format -i src/*.hpp expp.cpp
+	clang-format -i include/expp/*.hpp expp.cpp
 	mix format
 
 bundle:
