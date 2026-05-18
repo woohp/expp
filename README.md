@@ -107,6 +107,170 @@ The shared library is compiled to `priv/my_nif.so` during `mix compile` and load
 
 > **Symbol visibility.** The `-fvisibility=hidden` flag prevents symbol clashes when multiple NIF libraries use expp in the same VM. Without it, loading two such libraries will fail.
 
+## Gleam Quickstart
+
+expp works with Gleam through a small Erlang loader module. Use an Erlang module name in `MODULE(...)`, not an Elixir module name.
+
+Create a Gleam project and add the native source:
+
+```sh
+gleam new my_nif
+cd my_nif
+mkdir -p c_src priv
+```
+
+Write `c_src/my_nif.cpp`:
+
+```cpp
+#include "expp.hpp"
+
+using namespace expp;
+
+int add(int a, int b)
+{
+    return a + b;
+}
+
+bool negate(bool value)
+{
+    return !value;
+}
+
+std::expected<int, std::string> checked_divide(int a, int b)
+{
+    if (b == 0)
+        return std::unexpected("division by zero");
+    return a / b;
+}
+
+gleam::option<int> positive(int value)
+{
+    if (value <= 0)
+        return std::nullopt;
+    return value;
+}
+
+auto image_size(int width, int height)
+{
+    return gleam::make_case<"image_size">(width, height);
+}
+
+MODULE(
+    my_nif_ffi,
+    nullptr,
+    nullptr,
+    nullptr,
+    def(add, DirtyFlags::NotDirty),
+    def(negate, DirtyFlags::NotDirty),
+    def(checked_divide, DirtyFlags::NotDirty),
+    def(positive, DirtyFlags::NotDirty),
+    def(image_size, DirtyFlags::NotDirty))
+```
+
+Create `Makefile`. Set `EXPP_INCLUDE_DIR` to the directory containing `expp.hpp` when building:
+
+```makefile
+ERTS_INCLUDE_DIR ?= $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])])' -s init stop -noshell)
+EXPP_INCLUDE_DIR ?= .
+SO_EXT ?= so
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  LDFLAGS_NIF = -undefined dynamic_lookup
+else
+  LDFLAGS_NIF =
+endif
+
+priv/my_nif.$(SO_EXT): c_src/my_nif.cpp
+	@mkdir -p priv
+	$(CXX) -I$(ERTS_INCLUDE_DIR) -I$(EXPP_INCLUDE_DIR) -std=c++23 -fPIC -fvisibility=hidden -shared $(LDFLAGS_NIF) -o $@ $<
+
+clean:
+	$(RM) priv/my_nif.$(SO_EXT)
+```
+
+Build the NIF:
+
+```sh
+make EXPP_INCLUDE_DIR=/path/to/expp
+```
+
+Write the Erlang loader module in `src/my_nif_ffi.erl`:
+
+```erlang
+-module(my_nif_ffi).
+-export([add/2, negate/1, checked_divide/2, positive/1, image_size/2]).
+-on_load(init/0).
+
+init() ->
+    PrivDir = case code:priv_dir(my_nif) of
+        {error, bad_name} -> "priv";
+        Dir -> Dir
+    end,
+    SoName = filename:join(PrivDir, "my_nif"),
+    erlang:load_nif(SoName, 0).
+
+add(_, _) -> erlang:nif_error(nif_not_loaded).
+negate(_) -> erlang:nif_error(nif_not_loaded).
+checked_divide(_, _) -> erlang:nif_error(nif_not_loaded).
+positive(_) -> erlang:nif_error(nif_not_loaded).
+image_size(_, _) -> erlang:nif_error(nif_not_loaded).
+```
+
+Declare the Gleam externals in `src/my_nif.gleam`:
+
+```gleam
+import gleam/int
+import gleam/io
+import gleam/option.{type Option}
+
+pub type ImageSize {
+  ImageSize(width: Int, height: Int)
+}
+
+@external(erlang, "my_nif_ffi", "add")
+pub fn add(a: Int, b: Int) -> Int
+
+@external(erlang, "my_nif_ffi", "negate")
+pub fn negate(value: Bool) -> Bool
+
+@external(erlang, "my_nif_ffi", "checked_divide")
+pub fn checked_divide(a: Int, b: Int) -> Result(Int, String)
+
+@external(erlang, "my_nif_ffi", "positive")
+pub fn positive(value: Int) -> Option(Int)
+
+@external(erlang, "my_nif_ffi", "image_size")
+pub fn image_size(width: Int, height: Int) -> ImageSize
+
+pub fn main() {
+  io.println(int.to_string(add(2, 3)))
+}
+```
+
+Run it:
+
+```sh
+gleam run -m my_nif
+# -> 5
+```
+
+Gleam interop notes:
+
+| Gleam | BEAM term | expp C++ type |
+|---|---|---|
+| `Int` | integer | `int64_t`, `int`, etc. with C++ bounds checking |
+| `Float` | float | `double` / `float` |
+| `Bool` | `true` / `false` atoms | `bool` |
+| `String` | UTF-8 binary | `std::string`, `std::string_view`, `expp::binary` |
+| `BitArray` | binary/bitstring | `expp::binary` for byte-aligned binaries |
+| `List(a)` | list | `std::vector<T>` |
+| tuple | tuple | `std::tuple<...>` / `std::pair<...>` |
+| `Result(a, e)` | `{ok, a}` / `{error, e}` | `std::expected<T, E>` |
+| `Option(a)` | `none` / `{some, a}` | `expp::gleam::option<T>` |
+| custom type constructor | tagged tuple | `expp::gleam::make_case<"tag">(...)` / `expp::gleam::case_<"tag", ...>` |
+
+`std::optional<T>` intentionally remains the Elixir/Erlang shape `nil | value`; use `expp::gleam::option<T>` for Gleam `Option(T)`. Use `expp::gleam::case_<"tag", ...>` when declaring a C++ `std::variant` that can return multiple Gleam constructors, and `expp::gleam::make_case<"tag">(...)` when constructing a value.
+
 ## Type Conversions
 
 Types convert automatically between C++ and Erlang/Elixir:

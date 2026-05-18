@@ -391,6 +391,26 @@ private:
     typedef std::expected<T, E> expected_type;
 
 public:
+    static expected_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        const ERL_NIF_TERM* tuple = nullptr;
+        int arity = 0;
+        if (!enif_get_tuple(env, term, &arity, &tuple) || arity != 2)
+            throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
+
+        char tag[8];
+        if (!enif_get_atom(env, tuple[0], tag, sizeof(tag), ERL_NIF_LATIN1))
+            throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
+
+        std::string_view tag_view(tag, std::char_traits<char>::length(tag));
+        if (tag_view == "ok")
+            return type_cast<T>::from_term(env, tuple[1]);
+        if (tag_view == "error")
+            return std::unexpected(type_cast<E>::from_term(env, tuple[1]));
+
+        throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
+    }
+
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const expected_type& result) noexcept
     {
         if (result.has_value())

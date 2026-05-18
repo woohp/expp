@@ -84,6 +84,59 @@ defmodule MyModTest do
     assert is_nil(MyMod.optional_returns(-123))
   end
 
+  test "gleam option arguments" do
+    assert MyMod.gleam_option_arguments({:some, 5}) == 5
+    assert MyMod.gleam_option_arguments(:none) == -123
+
+    assert_raise ArgumentError, fn ->
+      MyMod.gleam_option_arguments(nil)
+    end
+
+    assert_raise ArgumentError, fn ->
+      MyMod.gleam_option_arguments(:some)
+    end
+
+    assert_raise ArgumentError, fn ->
+      MyMod.gleam_option_arguments({:some})
+    end
+
+    assert_raise ArgumentError, fn ->
+      MyMod.gleam_option_arguments({:other, 5})
+    end
+  end
+
+  test "gleam option returns" do
+    assert MyMod.gleam_option_returns(5) == {:some, 5}
+    assert MyMod.gleam_option_returns(-123) == :none
+  end
+
+  test "gleam tagged returns" do
+    assert MyMod.gleam_tagged_image(640, 480) == {:image, 640, 480}
+  end
+
+  test "gleam tagged variant returns multiple tagged shapes" do
+    assert MyMod.gleam_tagged_variant(7) == {:found, 7, "ok"}
+    assert MyMod.gleam_tagged_variant(-1) == {:missing, -1}
+    assert MyMod.gleam_tagged_variant(0) == {:empty}
+  end
+
+  test "expected arguments" do
+    assert MyMod.expected_arguments({:ok, 5}) == {:ok, 10}
+    assert MyMod.expected_arguments({:error, 5}) == {:error, 15}
+
+    assert_raise ArgumentError, fn ->
+      MyMod.expected_arguments(:ok)
+    end
+
+    assert_raise ArgumentError, fn ->
+      MyMod.expected_arguments({:ok})
+    end
+
+    assert_raise ArgumentError, fn ->
+      MyMod.expected_arguments({:other, 5})
+    end
+  end
+
   test "expected returns" do
     assert MyMod.get_expected(3) == {:ok, 123}
     assert MyMod.get_expected(-5) == {:error, -123}

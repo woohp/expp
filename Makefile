@@ -9,3 +9,6 @@ clean:
 format:
 	clang-format -i src/*.hpp expp.cpp
 	mix format
+
+bundle:
+	./scripts/bundle.sh

@@ -2,6 +2,7 @@
 #include "casts.hpp"
 #include "ext_types.hpp"
 #include "generator.hpp"
+#include "gleam.hpp"
 #include "resource.hpp"
 #include "yielding.hpp"
 #include <erl_nif.h>

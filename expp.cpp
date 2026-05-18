@@ -97,6 +97,50 @@ optional<int> optional_returns(int i)
 }
 
 
+int gleam_option_arguments(gleam::option<int> i)
+{
+    if (i)
+        return *i;
+    return -123;
+}
+
+
+gleam::option<int> gleam_option_returns(int i)
+{
+    if (i < 0)
+        return nullopt;
+    return i;
+}
+
+
+auto gleam_tagged_image(int width, int height)
+{
+    return gleam::make_case<"image">(width, height);
+}
+
+
+using gleam_tagged_variant_result =
+    variant<gleam::case_<"found", int, string>, gleam::case_<"missing", int>, gleam::case_<"empty">>;
+
+
+gleam_tagged_variant_result gleam_tagged_variant(int id)
+{
+    if (id > 0)
+        return gleam::make_case<"found">(id, string{"ok"});
+    if (id < 0)
+        return gleam::make_case<"missing">(id);
+    return gleam::make_case<"empty">();
+}
+
+
+std::expected<int, int> expected_arguments(std::expected<int, int> result)
+{
+    if (result)
+        return *result * 2;
+    return std::unexpected(result.error() * 3);
+}
+
+
 std::expected<int, int> get_expected(int i)
 {
     if (i >= 0)
@@ -355,10 +399,7 @@ struct expp::type_cast<MyPersistentType>
 {
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const MyPersistentType& t)
     {
-        return enif_make_tuple2(
-            env,
-            enif_make_int(env, t.value),
-            type_cast<vector<int>>::to_term(env, t.data));
+        return enif_make_tuple2(env, enif_make_int(env, t.value), type_cast<vector<int>>::to_term(env, t.data));
     }
 
     static MyPersistentType from_term(ErlNifEnv* env, ERL_NIF_TERM term)
@@ -368,8 +409,8 @@ struct expp::type_cast<MyPersistentType>
         if (!enif_get_tuple(env, term, &arity, &tup_array) || arity != 2)
             throw std::invalid_argument("expected {int, list}");
         return MyPersistentType{
-            type_cast<int>::from_term(env, tup_array[0]),
-            type_cast<vector<int>>::from_term(env, tup_array[1])};
+            type_cast<int>::from_term(env, tup_array[0]), type_cast<vector<int>>::from_term(env, tup_array[1])
+        };
     }
 };
 
@@ -417,6 +458,11 @@ MODULE(
     def(bool_returns, DirtyFlags::NotDirty),
     def(optional_arguments, DirtyFlags::NotDirty),
     def(optional_returns, DirtyFlags::NotDirty),
+    def(gleam_option_arguments, DirtyFlags::NotDirty),
+    def(gleam_option_returns, DirtyFlags::NotDirty),
+    def(gleam_tagged_image, DirtyFlags::NotDirty),
+    def(gleam_tagged_variant, DirtyFlags::NotDirty),
+    def(expected_arguments, DirtyFlags::NotDirty),
     def(get_expected, DirtyFlags::NotDirty),
     def(get_expected_stringview_error, DirtyFlags::NotDirty),
     def(atom_arguments, DirtyFlags::NotDirty),

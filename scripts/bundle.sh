@@ -18,6 +18,7 @@ FILES=(
     "casts.hpp"
     "ext_types.hpp"
     "stl.hpp"
+    "gleam.hpp"
     "yielding.hpp"
     "expp.hpp"
 )
