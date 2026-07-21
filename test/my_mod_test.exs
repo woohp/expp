@@ -540,7 +540,7 @@ defmodule MyModTest do
       assert File.exists?(Path.join(dir, "expp.hpp"))
     end
   end
-  
+
   describe "empty value edge cases" do
     test "empty binary identity" do
       assert MyMod.binary_identity("") == ""

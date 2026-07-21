@@ -11,9 +11,9 @@ defmodule Expp do
     quote do
       @on_load :load_nif
       def load_nif() do
-        ext = Keyword.fetch!(unquote(opts), :ext)
-        ext = to_charlist(ext)
-        :ok = :erlang.load_nif(ext, 0)
+        path = Keyword.fetch!(unquote(opts), :path)
+        path = to_charlist(path)
+        :ok = :erlang.load_nif(path, 0)
       end
     end
   end

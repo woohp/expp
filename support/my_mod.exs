@@ -3,7 +3,7 @@ defmodule MyMod do
   Documentation for MyMod.
   """
 
-  use Expp, ext: "./expp"
+  use Expp, path: "./expp"
 
   def vector_times_int(_v, _i), do: :erlang.nif_error(:not_loaded)
   def vector_char_plus_one(_v), do: :erlang.nif_error(:not_loaded)

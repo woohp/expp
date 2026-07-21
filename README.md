@@ -15,7 +15,7 @@ MODULE(
 
 ```elixir
 defmodule MyMod do
-  use Expp, ext: "./expp"
+  use Expp, path: "./expp"
 
   def add(_a, _b), do: :erlang.nif_error(:not_loaded)
 end
@@ -88,7 +88,7 @@ Write the Elixir module in `lib/my_nif.ex`:
 
 ```elixir
 defmodule MyNif do
-  use Expp, ext: "./priv/my_nif"
+  use Expp, path: Application.app_dir(:my_nif, "priv/my_nif")
 
   def add(_a, _b), do: :erlang.nif_error(:not_loaded)
 end
@@ -103,7 +103,7 @@ mix run -e "IO.puts(MyNif.add(2, 3))"
 # → 5
 ```
 
-The shared library is compiled to `priv/my_nif.so` during `mix compile` and loaded at runtime by `Expp`.
+The shared library is compiled to `priv/my_nif.so` during `mix compile` and loaded at runtime by `Expp`. The caller provides the complete path; `Application.app_dir/2` keeps it independent of the current working directory and compatible with releases.
 
 > **Symbol visibility.** The `-fvisibility=hidden` flag prevents symbol clashes when multiple NIF libraries use expp in the same VM. Without it, loading two such libraries will fail.
 

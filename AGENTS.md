@@ -104,7 +104,7 @@ Conversions are BEAM-term based and work across Erlang, Elixir, and Gleam surfac
 
 ## Elixir Interop
 
-- Use `use Expp, ext: "./path/to/nif"` in Elixir modules.
+- Use `use Expp, path: nif_path` in Elixir modules. Callers are responsible for constructing the complete path, typically with `Application.app_dir/2` for NIFs under an OTP application's `priv` directory.
 - Provide fallback functions that call `:erlang.nif_error(:not_loaded)`.
 - Tests use `ExUnit.Case`, `doctest`, `assert_raise` for invalid arguments, and `{:ok, value}` / `{:error, reason}` assertions for expected-like returns.
 
