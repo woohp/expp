@@ -1,10 +1,7 @@
 #pragma once
-#include "atom.hpp"
 #include "casts.hpp"
 #include <erl_nif.h>
 #include <stdexcept>
-#include <tuple>
-#include <variant>
 
 
 namespace expp
@@ -27,8 +24,8 @@ struct erl_error : erl_error_base
 
     ERL_NIF_TERM get_term(ErlNifEnv* env) const
     {
-        using error_type = std::tuple<atom, std::decay_t<T>>;
-        return type_cast<error_type>::to_term(env, error_type("error"_atom, error_value));
+        return enif_make_tuple2(
+            env, enif_make_atom(env, "error"), type_cast<std::decay_t<T>>::to_term(env, error_value));
     }
 };
 
@@ -47,11 +44,7 @@ inline ERL_NIF_TERM raise_error_with_message(ErlNifEnv* env, const char* module_
     };
 
     ERL_NIF_TERM map;
-    if (!enif_make_map_from_arrays(env, keys, values, 3, &map))
-    {
-        return enif_raise_exception(env, type_cast<std::string_view>::to_term(env, message));
-    }
-
+    enif_make_map_from_arrays(env, keys, values, 3, &map);
     return enif_raise_exception(env, map);
 }
 

@@ -442,12 +442,6 @@ yielding<MyPersistentType> yield_persistent_type(int n)
 }
 
 
-int add_resource_use_count(resource<MyResource> res)
-{
-    return res.get().value;
-}
-
-
 int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 {
     yielding_resource_t::init(env, "yielding_generator");

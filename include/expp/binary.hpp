@@ -30,10 +30,9 @@ public:
     }
 
     template <size_t N>
-    explicit binary(const char (&str)[N])
+    explicit binary(const char (&str)[N]) :
+        binary(N - 1)
     {
-        if (!enif_alloc_binary(N - 1, this))
-            throw std::bad_alloc{};
         std::copy_n(str, N - 1, this->data);
     }
 
@@ -92,8 +91,6 @@ public:
 
 inline binary operator""_binary(const char* s, std::size_t len)
 {
-    binary binary_info{len};  // constructor checks allocation and throws on failure
-    std::copy_n(s, len, binary_info.data);
-    return binary_info;
+    return binary::from_bytes(s, len);
 }
 }  // namespace expp

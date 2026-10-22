@@ -311,19 +311,9 @@ public:
         return this->name == sv;
     }
 
-    bool operator!=(const std::string_view sv) const
-    {
-        return this->name != sv;
-    }
-
     bool operator==(const atom& other) const
     {
         return this->name == other.name;
-    }
-
-    bool operator!=(const atom& other) const
-    {
-        return this->name != other.name;
     }
 
     std::string name;
@@ -364,10 +354,9 @@ public:
     }
 
     template <size_t N>
-    explicit binary(const char (&str)[N])
+    explicit binary(const char (&str)[N]) :
+        binary(N - 1)
     {
-        if (!enif_alloc_binary(N - 1, this))
-            throw std::bad_alloc{};
         std::copy_n(str, N - 1, this->data);
     }
 
@@ -426,9 +415,7 @@ public:
 
 inline binary operator""_binary(const char* s, std::size_t len)
 {
-    binary binary_info{len};  // constructor checks allocation and throws on failure
-    std::copy_n(s, len, binary_info.data);
-    return binary_info;
+    return binary::from_bytes(s, len);
 }
 }  // namespace expp
 
@@ -487,14 +474,13 @@ public:
             enif_release_resource(objp);
     }
 
-    template <typename U = T>
-    U& get()
+    T& get()
     {
         if (owns_ && objp)
-            return *reinterpret_cast<U*>(objp);
+            return *reinterpret_cast<T*>(objp);
         if (!enif_get_resource(env, term, resource<T>::resource_type, &this->objp))
             throw std::invalid_argument("invalid resource");
-        return *reinterpret_cast<U*>(this->objp);
+        return *reinterpret_cast<T*>(this->objp);
     }
 
     template <typename... Args>
@@ -505,22 +491,15 @@ public:
         if (!buf)
             throw std::bad_alloc{};
 
-        struct alloc_guard
+        try
         {
-            void* ptr;
-            ~alloc_guard()
-            {
-                if (ptr)
-                    enif_release_resource(ptr);
-            }
-            void dismiss()
-            {
-                ptr = nullptr;
-            }
-        } guard{buf};
-
-        new (buf) T{std::forward<Args>(args)...};
-        guard.dismiss();
+            new (buf) T{std::forward<Args>(args)...};
+        }
+        catch (...)
+        {
+            enif_release_resource(buf);
+            throw;
+        }
         return resource<T>{static_cast<T*>(buf)};
     }
 
@@ -971,8 +950,8 @@ struct erl_error : erl_error_base
 
     ERL_NIF_TERM get_term(ErlNifEnv* env) const
     {
-        using error_type = std::tuple<atom, std::decay_t<T>>;
-        return type_cast<error_type>::to_term(env, error_type("error"_atom, error_value));
+        return enif_make_tuple2(
+            env, enif_make_atom(env, "error"), type_cast<std::decay_t<T>>::to_term(env, error_value));
     }
 };
 
@@ -991,11 +970,7 @@ inline ERL_NIF_TERM raise_error_with_message(ErlNifEnv* env, const char* module_
     };
 
     ERL_NIF_TERM map;
-    if (!enif_make_map_from_arrays(env, keys, values, 3, &map))
-    {
-        return enif_raise_exception(env, type_cast<std::string_view>::to_term(env, message));
-    }
-
+    enif_make_map_from_arrays(env, keys, values, 3, &map);
     return enif_raise_exception(env, map);
 }
 
@@ -1653,16 +1628,18 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
         return (... || std::is_reference_v<Args>);
     }
 
-    template <typename U>
-    constexpr static bool any_args_has_type()
-    {
-        return (... || std::is_same_v<Args, U>);
-    }
-
     constexpr static bool all_args_yield_safe()
     {
         return (... && expp::is_yield_safe<Args>());
     }
+};
+
+
+enum class DirtyFlags
+{
+    NotDirty = 0,
+    DirtyCpu = ERL_NIF_DIRTY_JOB_CPU_BOUND,
+    DirtyIO = ERL_NIF_DIRTY_JOB_IO_BOUND,
 };
 
 
@@ -1680,9 +1657,7 @@ inline ERL_NIF_TERM coroutine_step(ErlNifEnv* env, int, const ERL_NIF_TERM argv[
 }
 
 
-// dirty_flags is an int rather than DirtyFlags so that this template can be
-// instantiated before the DirtyFlags enum is defined later in this file.
-template <auto fn, int dirty_flags = 0>
+template <auto fn, DirtyFlags dirty_flags>
 constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     using func_traits = function_traits<decltype(fn)>;
@@ -1716,7 +1691,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                 "for fully-owned custom decoded types.");
 
             auto impl = std::make_unique<yielding_resource_impl<return_type>>(std::move(ret));
-            impl->dirty_flags = dirty_flags;
+            impl->dirty_flags = static_cast<int>(dirty_flags);
 
             if (auto step_output = impl->step(env); step_output)
                 return step_output;
@@ -1727,7 +1702,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
                 auto res = yielding_resource_t::alloc(std::move(impl));
                 ERL_NIF_TERM resource_term = type_cast<yielding_resource_t>::to_term(env, res);
                 ERL_NIF_TERM argv[] = {resource_term};
-                return enif_schedule_nif(env, "coroutine_step", dirty_flags, coroutine_step, 1, argv);
+                return enif_schedule_nif(env, "coroutine_step", static_cast<int>(dirty_flags), coroutine_step, 1, argv);
             }
         }
         else
@@ -1755,21 +1730,13 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 }
 
 
-enum class DirtyFlags
-{
-    NotDirty = 0,
-    DirtyCpu = ERL_NIF_DIRTY_JOB_CPU_BOUND,
-    DirtyIO = ERL_NIF_DIRTY_JOB_IO_BOUND,
-};
-
-
 template <auto fn, DirtyFlags dirty_flag>
 consteval ErlNifFunc def_impl(const char* name)
 {
     ErlNifFunc entry = {
         name,
         function_traits<decltype(fn)>::nargs,
-        wrapper<fn, static_cast<int>(dirty_flag)>,
+        wrapper<fn, dirty_flag>,
         static_cast<int>(dirty_flag),
     };
     return entry;

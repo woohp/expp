@@ -57,14 +57,13 @@ public:
             enif_release_resource(objp);
     }
 
-    template <typename U = T>
-    U& get()
+    T& get()
     {
         if (owns_ && objp)
-            return *reinterpret_cast<U*>(objp);
+            return *reinterpret_cast<T*>(objp);
         if (!enif_get_resource(env, term, resource<T>::resource_type, &this->objp))
             throw std::invalid_argument("invalid resource");
-        return *reinterpret_cast<U*>(this->objp);
+        return *reinterpret_cast<T*>(this->objp);
     }
 
     template <typename... Args>
@@ -75,22 +74,15 @@ public:
         if (!buf)
             throw std::bad_alloc{};
 
-        struct alloc_guard
+        try
         {
-            void* ptr;
-            ~alloc_guard()
-            {
-                if (ptr)
-                    enif_release_resource(ptr);
-            }
-            void dismiss()
-            {
-                ptr = nullptr;
-            }
-        } guard{buf};
-
-        new (buf) T{std::forward<Args>(args)...};
-        guard.dismiss();
+            new (buf) T{std::forward<Args>(args)...};
+        }
+        catch (...)
+        {
+            enif_release_resource(buf);
+            throw;
+        }
         return resource<T>{static_cast<T*>(buf)};
     }
 
