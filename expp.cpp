@@ -332,12 +332,6 @@ int int_identity(int x)
 }
 
 
-int32_t int32_identity(int32_t x)
-{
-    return x;
-}
-
-
 uint32_t uint32_identity(uint32_t x)
 {
     return x;
@@ -497,7 +491,6 @@ MODULE(
     def(multimap_test, DirtyFlags::NotDirty),
     def(unordered_multimap_test, DirtyFlags::NotDirty),
     def(int_identity, DirtyFlags::NotDirty),
-    def(int32_identity, DirtyFlags::NotDirty),
     def(uint32_identity, DirtyFlags::NotDirty),
     def(int64_identity, DirtyFlags::NotDirty),
     def(uint64_identity, DirtyFlags::NotDirty),

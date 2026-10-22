@@ -47,7 +47,6 @@ defmodule MyMod do
   def multimap_test(_m), do: :erlang.nif_error(:not_loaded)
   def unordered_multimap_test(_m), do: :erlang.nif_error(:not_loaded)
   def int_identity(_x), do: :erlang.nif_error(:not_loaded)
-  def int32_identity(_x), do: :erlang.nif_error(:not_loaded)
   def uint32_identity(_x), do: :erlang.nif_error(:not_loaded)
   def int64_identity(_x), do: :erlang.nif_error(:not_loaded)
   def uint64_identity(_x), do: :erlang.nif_error(:not_loaded)

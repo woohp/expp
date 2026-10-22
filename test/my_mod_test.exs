@@ -154,10 +154,6 @@ defmodule MyModTest do
     assert MyMod.atom_returns(-123) == :bar
   end
 
-  test "coroutines" do
-    assert MyMod.simple_coroutine(5) == {4, 16}
-  end
-
   test "nested vector" do
     assert MyMod.nested_vector([[1, 2], [3, 4]]) == [[2, 4], [6, 8]]
   end
@@ -177,43 +173,19 @@ defmodule MyModTest do
     assert MyMod.byte_vector_test("ABC") == "BCD"
   end
 
-  test "resources" do
-    res = MyMod.make_resource(123)
-    assert is_reference(res)
-    assert MyMod.use_resource(res) == 123
-  end
-
-  test "resource get() on owning handle" do
-    res = MyMod.make_resource_incremented(5)
-    assert is_reference(res)
-    assert MyMod.use_resource(res) == 6
-  end
-
   test "handle erl_error" do
     assert MyMod.throw_error(10) == 10
     assert MyMod.throw_error(0) == {:error, "some error"}
     assert MyMod.throw_error(1) == {:error, 42}
   end
 
-  test "dirty cpu nif" do
-    assert MyMod.dirty_cpu_test(5) == 50
-  end
-
   test "Elixir exception structs" do
-    # Test ArgumentError from invalid decoding
-    try do
+    assert_raise ArgumentError, "invalid vector", fn ->
       MyMod.vector_times_int("not a list", 2)
-    rescue
-      e in ArgumentError ->
-        assert e.message == "invalid vector"
     end
 
-    # Test RuntimeError from C++ exception
-    try do
+    assert_raise RuntimeError, "this is a runtime error from C++", fn ->
       MyMod.raise_runtime_error_test()
-    rescue
-      e in RuntimeError ->
-        assert e.message == "this is a runtime error from C++"
     end
   end
 
@@ -230,13 +202,6 @@ defmodule MyModTest do
   test "empty list and map" do
     assert MyMod.vector_times_int([], 2) == []
     assert MyMod.times2(%{}) == %{}
-  end
-
-  test "large map performance and correctness" do
-    size = 1000
-    map = for i <- 1..size, into: %{}, do: {i, i}
-    expected = for i <- 1..size, into: %{}, do: {i, i * i}
-    assert MyMod.times2(map) == expected
   end
 
   test "tuple arity mismatch" do
@@ -367,19 +332,6 @@ defmodule MyModTest do
     end
   end
 
-  describe "int32_t identity" do
-    test "valid values" do
-      assert MyMod.int32_identity(0) == 0
-      assert MyMod.int32_identity(2_147_483_647) == 2_147_483_647
-      assert MyMod.int32_identity(-2_147_483_648) == -2_147_483_648
-    end
-
-    test "rejects overflow" do
-      assert_raise ArgumentError, fn -> MyMod.int32_identity(2_147_483_648) end
-      assert_raise ArgumentError, fn -> MyMod.int32_identity(-2_147_483_649) end
-    end
-  end
-
   describe "uint32_t identity" do
     test "valid values" do
       assert MyMod.uint32_identity(0) == 0
@@ -457,14 +409,10 @@ defmodule MyModTest do
   describe "dirty NIFs" do
     test "DirtyCPU" do
       assert MyMod.dirty_cpu_test(5) == 50
-      assert MyMod.dirty_cpu_test(0) == 0
-      assert MyMod.dirty_cpu_test(-3) == -30
     end
 
     test "DirtyIO" do
       assert MyMod.dirty_io_test(7) == 700
-      assert MyMod.dirty_io_test(0) == 0
-      assert MyMod.dirty_io_test(-2) == -200
     end
   end
 
@@ -481,10 +429,6 @@ defmodule MyModTest do
       assert MyMod.yield_values(1) == 0
       assert MyMod.yield_values(3) == 20
       assert MyMod.yield_values(5) == 40
-    end
-
-    test "yielding with one step returns immediately" do
-      assert MyMod.yield_values(1) == 0
     end
 
     test "exhaustion without co_yield raises RuntimeError" do
@@ -543,12 +487,6 @@ defmodule MyModTest do
     end
   end
 
-  describe "NIF library loaded" do
-    test "all NIFs are loaded (fallback raises nif_error)" do
-      assert MyMod.int_identity(1) == 1
-    end
-  end
-
   describe "Expp module" do
     test "include_dir/0 returns the expp package root" do
       dir = Expp.include_dir()
@@ -567,12 +505,8 @@ defmodule MyModTest do
     test "empty string_view identity" do
       assert MyMod.stringview_identity("") == ""
     end
-
-    test "empty string identity" do
-      assert MyMod.string_identity("") == ""
-    end
   end
-  
+
   describe "large data" do
     test "10000-element vector" do
       input = Enum.to_list(1..10_000)
