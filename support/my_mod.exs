@@ -56,6 +56,8 @@ defmodule MyMod do
   def dirty_io_test(_i), do: :erlang.nif_error(:not_loaded)
   def named_nif(_x), do: :erlang.nif_error(:not_loaded)
   def yield_values(_n), do: :erlang.nif_error(:not_loaded)
+  def schedule_on_steps(), do: :erlang.nif_error(:not_loaded)
+  def schedule_on_steps_dirty(), do: :erlang.nif_error(:not_loaded)
   def yield_exhaustion(), do: :erlang.nif_error(:not_loaded)
 
   def yield_persistent_type(_n), do: :erlang.nif_error(:not_loaded)

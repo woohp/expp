@@ -456,6 +456,12 @@ defmodule MyModTest do
       result = MyMod.yield_persistent_type(1)
       assert result == {0, [1, 2, 3]}
     end
+
+    # enif_thread_type: 1 is a normal scheduler, 2 a dirty CPU scheduler
+    test "schedule_on moves the following steps to another scheduler" do
+      assert MyMod.schedule_on_steps() == [1, 2, 1]
+      assert MyMod.schedule_on_steps_dirty() == [2, 2, 1]
+    end
   end
 
   describe "resource" do

@@ -443,4 +443,15 @@ expp::yielding<int> process_items(int n)
 }
 ```
 
+Steps run on the scheduler the NIF was registered with. A library call that can't be split and may run long
+can move to a dirty scheduler and back; the flag applies to every following step until changed:
+
+```cpp
+co_yield expp::schedule_on(DirtyFlags::DirtyCpu);  // suspend; the next steps run on a dirty CPU scheduler
+long_indivisible_call();
+co_yield expp::schedule_on(DirtyFlags::NotDirty);  // back to normal schedulers
+```
+
+On normal schedulers, each step reports the time it used with `enif_consume_timeslice`.
+
 Restrictions: no reference, `binary`, or `string_view` arguments (their backing storage may be invalidated across resumptions).

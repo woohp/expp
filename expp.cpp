@@ -394,6 +394,18 @@ yielding<int> yield_values(int n)
 }
 
 
+// Returns the scheduler type (enif_thread_type) each step ran on.
+yielding<vector<int>> schedule_on_steps()
+{
+    vector<int> thread_types{enif_thread_type()};
+    co_yield schedule_on(DirtyFlags::DirtyCpu);
+    thread_types.push_back(enif_thread_type());
+    co_yield schedule_on(DirtyFlags::NotDirty);
+    thread_types.push_back(enif_thread_type());
+    co_yield thread_types;
+}
+
+
 yielding<int> yield_exhaustion()
 {
     co_return;
@@ -508,6 +520,8 @@ MODULE(
     def(dirty_io_test, DirtyFlags::DirtyIO),
     def(named_nif_impl, "named_nif", DirtyFlags::NotDirty),
     def(yield_values, DirtyFlags::NotDirty),
+    def(schedule_on_steps, DirtyFlags::NotDirty),
+    def(schedule_on_steps, "schedule_on_steps_dirty", DirtyFlags::DirtyCpu),
     def(yield_exhaustion, DirtyFlags::NotDirty),
 
     def(yield_persistent_type, DirtyFlags::NotDirty), )
