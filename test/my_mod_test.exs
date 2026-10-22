@@ -77,6 +77,12 @@ defmodule MyModTest do
     end
   end
 
+  test "optional of an atom-decoded type accepts its atoms" do
+    assert MyMod.optional_bool_arguments(true) == 1
+    assert MyMod.optional_bool_arguments(false) == 0
+    assert MyMod.optional_bool_arguments(nil) == -1
+  end
+
   test "optional returns" do
     assert MyMod.optional_returns(5) == 5
     assert is_nil(MyMod.optional_returns(-123))

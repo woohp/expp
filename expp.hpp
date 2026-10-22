@@ -887,16 +887,9 @@ struct type_cast<std::optional<T>>
     {
         static_assert(!std::is_same_v<T, atom>, "std::optional cannot wrap an atom");
 
-        if (enif_is_atom(env, term))
-        {
-            if (!detail::is_atom(env, term, "nil"))
-                throw std::invalid_argument("expected nil, got: " + format_term(term));
+        if (detail::is_atom(env, term, "nil"))
             return std::nullopt;
-        }
-        else
-        {
-            return type_cast<T>::from_term(env, term);
-        }
+        return type_cast<T>::from_term(env, term);
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::optional<T>& item)

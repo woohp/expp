@@ -89,6 +89,14 @@ int optional_arguments(optional<int> i)
 }
 
 
+int optional_bool_arguments(optional<bool> b)
+{
+    if (!b)
+        return -1;
+    return *b ? 1 : 0;
+}
+
+
 optional<int> optional_returns(int i)
 {
     if (i < 0)
@@ -460,6 +468,7 @@ MODULE(
     def(bool_arguments, DirtyFlags::NotDirty),
     def(bool_returns, DirtyFlags::NotDirty),
     def(optional_arguments, DirtyFlags::NotDirty),
+    def(optional_bool_arguments, DirtyFlags::NotDirty),
     def(optional_returns, DirtyFlags::NotDirty),
     def(gleam_option_arguments, DirtyFlags::NotDirty),
     def(gleam_option_returns, DirtyFlags::NotDirty),

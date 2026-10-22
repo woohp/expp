@@ -16,6 +16,7 @@ defmodule MyMod do
   def bool_arguments(_b), do: :erlang.nif_error(:not_loaded)
   def bool_returns(_i), do: :erlang.nif_error(:not_loaded)
   def optional_arguments(_i), do: :erlang.nif_error(:not_loaded)
+  def optional_bool_arguments(_b), do: :erlang.nif_error(:not_loaded)
   def optional_returns(_i), do: :erlang.nif_error(:not_loaded)
   def gleam_option_arguments(_i), do: :erlang.nif_error(:not_loaded)
   def gleam_option_returns(_i), do: :erlang.nif_error(:not_loaded)
