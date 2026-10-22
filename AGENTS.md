@@ -19,7 +19,7 @@ Do not edit root `expp.hpp` directly. Edit `include/expp/*.hpp`, then regenerate
 make              # Build expp.so
 make clean        # Remove expp.so
 make bundle       # Generates bundled root expp.hpp from include/expp/*.hpp
-make format       # clang-format include/expp/*.hpp/expp.cpp, bundle expp.hpp, mix format
+make format       # clang-format include/expp/*.hpp and expp.cpp, mix format
 mix compile       # Compile Elixir project
 mix test          # Run all tests
 gleam check       # Validate Gleam package metadata/module

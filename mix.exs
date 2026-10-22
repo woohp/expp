@@ -2,14 +2,14 @@ defmodule Expp.MixProject do
   use Mix.Project
 
   def project do
-    compilers = if env() == :dev, do: [:elixir_make] ++ Mix.compilers(), else: Mix.compilers()
+    compilers = if Mix.env() == :dev, do: [:elixir_make] ++ Mix.compilers(), else: Mix.compilers()
 
     [
       app: :expp,
       version: "0.2.0",
       elixir: "~> 1.15",
       compilers: compilers,
-      start_permanent: env() == :prod,
+      start_permanent: Mix.env() == :prod,
       deps: deps()
     ]
   end
@@ -23,6 +23,4 @@ defmodule Expp.MixProject do
       {:elixir_make, "~> 0.6", only: :dev, runtime: false}
     ]
   end
-
-  defp env, do: Mix.env()
 end
