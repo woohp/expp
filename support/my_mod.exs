@@ -41,6 +41,7 @@ defmodule MyMod do
   def raise_runtime_error_test(), do: :erlang.nif_error(:not_loaded)
   def int8_identity(_x), do: :erlang.nif_error(:not_loaded)
   def uint8_identity(_x), do: :erlang.nif_error(:not_loaded)
+  def char_identity(_x), do: :erlang.nif_error(:not_loaded)
   def int16_identity(_x), do: :erlang.nif_error(:not_loaded)
   def float_identity(_x), do: :erlang.nif_error(:not_loaded)
   def multimap_test(_m), do: :erlang.nif_error(:not_loaded)

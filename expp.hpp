@@ -11,7 +11,6 @@
 #include <exception>
 #include <expected>
 #include <functional>
-#include <iostream>
 #include <iterator>
 #include <limits>
 #include <map>
@@ -596,71 +595,43 @@ inline std::string format_term(ERL_NIF_TERM term)
 }
 
 
+namespace detail
+{
+inline bool is_atom(ErlNifEnv* env, ERL_NIF_TERM term, const char* name)
+{
+    return enif_is_identical(term, enif_make_atom(env, name));
+}
+}  // namespace detail
+
+
 template <std::integral T>
 struct type_cast<T>
 {
+    using wide_type = std::conditional_t<std::is_signed_v<T>, ErlNifSInt64, ErlNifUInt64>;
+
     static T from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
+        wide_type i;
+        bool ok;
         if constexpr (std::is_signed_v<T>)
-        {
-            if constexpr (sizeof(T) < 8)
-            {
-                int i;
-                if (!enif_get_int(env, term, &i))
-                    throw std::invalid_argument("expected an integer, got: " + format_term(term));
-                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
-                    throw std::invalid_argument("integer argument out of bounds...");
-                return static_cast<T>(i);
-            }
-            else
-            {
-                ErlNifSInt64 i;
-                if (!enif_get_int64(env, term, &i))
-                    throw std::invalid_argument("expected an int64, got: " + format_term(term));
-                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
-                    throw std::invalid_argument("integer argument out of bounds...");
-                return static_cast<T>(i);
-            }
-        }
+            ok = enif_get_int64(env, term, &i);
         else
-        {
-            if constexpr (sizeof(T) < 8)
-            {
-                unsigned int i;
-                if (!enif_get_uint(env, term, &i))
-                    throw std::invalid_argument("expected an unsigned int, got: " + format_term(term));
-                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
-                    throw std::invalid_argument("integer argument out of bounds...");
-                return static_cast<T>(i);
-            }
-            else
-            {
-                ErlNifUInt64 i;
-                if (!enif_get_uint64(env, term, &i))
-                    throw std::invalid_argument("expected a uint64, got: " + format_term(term));
-                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
-                    throw std::invalid_argument("integer argument out of bounds...");
-                return static_cast<T>(i);
-            }
-        }
+            ok = enif_get_uint64(env, term, &i);
+        if (ok && i >= std::numeric_limits<T>::min() && i <= std::numeric_limits<T>::max())
+            return static_cast<T>(i);
+        if (enif_term_type(env, term) != ERL_NIF_TERM_TYPE_INTEGER)
+            throw std::invalid_argument("expected an integer, got: " + format_term(term));
+        throw std::invalid_argument(
+            "integer out of range [" + std::to_string(std::numeric_limits<T>::min()) + ", " +
+            std::to_string(std::numeric_limits<T>::max()) + "], got: " + format_term(term));
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, T i) noexcept
     {
         if constexpr (std::is_signed_v<T>)
-        {
-            if constexpr (sizeof(T) < 8)
-                return enif_make_int(env, i);
-            else
-                return enif_make_int64(env, static_cast<ErlNifSInt64>(i));
-        }
+            return enif_make_int64(env, i);
         else
-        {
-            if constexpr (sizeof(T) < 8)
-                return enif_make_uint(env, i);
-            else
-                return enif_make_uint64(env, static_cast<ErlNifUInt64>(i));
-        }
+            return enif_make_uint64(env, i);
     }
 };
 
@@ -685,30 +656,6 @@ struct type_cast<T>
 };
 
 
-// Note: from_term always copies from the binary data into a new std::string.
-// For read-only access without copying, prefer std::string_view.
-template <>
-struct type_cast<std::string>
-{
-    static std::string from_term(ErlNifEnv* env, ERL_NIF_TERM term)
-    {
-        ErlNifBinary binary_info;
-        if (!enif_inspect_binary(env, term, &binary_info))
-            throw std::invalid_argument("expected a binary, got: " + format_term(term));
-        return std::string(reinterpret_cast<const char*>(binary_info.data), binary_info.size);
-    }
-
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string& s)
-    {
-        ErlNifBinary binary_info;
-        if (!enif_alloc_binary(s.size(), &binary_info))
-            throw std::bad_alloc{};
-        std::copy_n(s.data(), s.size(), binary_info.data);
-        return enif_make_binary(env, &binary_info);
-    }
-};
-
-
 template <>
 struct type_cast<std::string_view>
 {
@@ -716,7 +663,7 @@ struct type_cast<std::string_view>
     {
         ErlNifBinary binary_info;
         if (!enif_inspect_binary(env, term, &binary_info))
-            throw std::invalid_argument("expected a string, got: " + format_term(term));
+            throw std::invalid_argument("expected a binary, got: " + format_term(term));
         return std::string_view(reinterpret_cast<const char*>(binary_info.data), binary_info.size);
     }
 
@@ -727,6 +674,23 @@ struct type_cast<std::string_view>
             throw std::bad_alloc{};
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
+    }
+};
+
+
+// Note: from_term always copies from the binary data into a new std::string.
+// For read-only access without copying, prefer std::string_view.
+template <>
+struct type_cast<std::string>
+{
+    static std::string from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return std::string(type_cast<std::string_view>::from_term(env, term));
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string& s)
+    {
+        return type_cast<std::string_view>::to_term(env, s);
     }
 };
 
@@ -776,11 +740,6 @@ struct type_cast<atom>
     {
         return enif_make_atom_len(env, a.name.data(), a.name.length());
     }
-
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string_view& s) noexcept
-    {
-        return enif_make_atom_len(env, s.data(), s.length());
-    }
 };
 
 
@@ -789,18 +748,11 @@ struct type_cast<bool>
 {
     static bool from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        char buf[8];
-        std::size_t bytes_read = enif_get_atom(env, term, buf, 8, ERL_NIF_LATIN1);
-        if (bytes_read == 0)
-            throw std::invalid_argument("expected a boolean, got: " + format_term(term));
-
-        std::string_view atom_str(buf, bytes_read - 1);
-        if (atom_str == "true"sv)
+        if (detail::is_atom(env, term, "true"))
             return true;
-        else if (atom_str == "false"sv)
+        if (detail::is_atom(env, term, "false"))
             return false;
-        else
-            throw std::invalid_argument("expected a boolean (true/false), got: " + format_term(term));
+        throw std::invalid_argument("expected a boolean (true/false), got: " + format_term(term));
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, bool b) noexcept
@@ -908,9 +860,9 @@ public:
     constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const variant_type& item) noexcept
     {
         return std::visit(
-            [env, &item](auto&& arg) {
+            [env](const auto& arg) {
                 using T = std::decay_t<decltype(arg)>;
-                return type_cast<T>::to_term(env, std::get<T>(item));
+                return type_cast<T>::to_term(env, arg);
             },
             item);
     }
@@ -931,14 +883,9 @@ public:
         if (!enif_get_tuple(env, term, &arity, &tuple) || arity != 2)
             throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
 
-        char tag[8];
-        if (!enif_get_atom(env, tuple[0], tag, sizeof(tag), ERL_NIF_LATIN1))
-            throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
-
-        std::string_view tag_view(tag, std::char_traits<char>::length(tag));
-        if (tag_view == "ok")
+        if (detail::is_atom(env, tuple[0], "ok"))
             return type_cast<T>::from_term(env, tuple[1]);
-        if (tag_view == "error")
+        if (detail::is_atom(env, tuple[0], "error"))
             return std::unexpected(type_cast<E>::from_term(env, tuple[1]));
 
         throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
@@ -963,10 +910,7 @@ struct type_cast<std::optional<T>>
 
         if (enif_is_atom(env, term))
         {
-            char buf[8];
-            if (enif_get_atom(env, term, buf, 8, ERL_NIF_LATIN1) != 4)
-                throw std::invalid_argument("expected nil, got: " + format_term(term));
-            if (std::string_view(buf, 3) != "nil")
+            if (!detail::is_atom(env, term, "nil"))
                 throw std::invalid_argument("expected nil, got: " + format_term(term));
             return std::nullopt;
         }
@@ -1161,115 +1105,57 @@ public:
 };
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::unordered_map<K, V>>
-{
-private:
-    typedef std::decay_t<K> key_type;
-    typedef std::decay_t<V> value_type;
-    typedef std::unordered_map<key_type, value_type> map_type;
-
-public:
-    constexpr static map_type from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
-    {
-        map_type _map;
-        std::size_t size;
-        if (!enif_get_map_size(env, term, &size))
-            throw std::invalid_argument("invalid map");
-        _map.reserve(size);
-
-        ErlNifMapIterator iter;
-        if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
-            throw std::invalid_argument("invalid map");
-
-        auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
-
-        ERL_NIF_TERM key, value;
-        while (enif_map_iterator_get_pair(env, &iter, &key, &value))
-        {
-            _map.emplace(type_cast<key_type>::from_term(env, key), type_cast<value_type>::from_term(env, value));
-            enif_map_iterator_next(env, &iter);
-        }
-
-        return _map;
-    }
-
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
-    {
-        std::vector<ERL_NIF_TERM> keys;
-        std::vector<ERL_NIF_TERM> values;
-        keys.reserve(_map.size());
-        values.reserve(_map.size());
-
-        for (const auto& item : _map)
-        {
-            keys.push_back(type_cast<key_type>::to_term(env, item.first));
-            values.push_back(type_cast<value_type>::to_term(env, item.second));
-        }
-
-        ERL_NIF_TERM map_term;
-        if (!enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term))
-            throw std::invalid_argument("duplicate keys in map");
-        return map_term;
-    }
-};
-
-
-template <InnerType K, InnerType V>
-struct type_cast<std::map<K, V>>
-{
-private:
-    typedef std::decay_t<K> key_type;
-    typedef std::decay_t<V> value_type;
-    typedef std::map<key_type, value_type> map_type;
-
-public:
-    constexpr static map_type from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
-    {
-        map_type _map;
-        std::size_t size;
-        if (!enif_get_map_size(env, term, &size))
-            throw std::invalid_argument("invalid map");
-
-        ErlNifMapIterator iter;
-        if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
-            throw std::invalid_argument("invalid map");
-
-        auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
-
-        ERL_NIF_TERM key, value;
-        while (enif_map_iterator_get_pair(env, &iter, &key, &value))
-        {
-            _map.emplace(type_cast<key_type>::from_term(env, key), type_cast<value_type>::from_term(env, value));
-            enif_map_iterator_next(env, &iter);
-        }
-
-        return _map;
-    }
-
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
-    {
-        std::vector<ERL_NIF_TERM> keys;
-        std::vector<ERL_NIF_TERM> values;
-        keys.reserve(_map.size());
-        values.reserve(_map.size());
-
-        for (const auto& item : _map)
-        {
-            keys.push_back(type_cast<key_type>::to_term(env, item.first));
-            values.push_back(type_cast<value_type>::to_term(env, item.second));
-        }
-
-        ERL_NIF_TERM map_term;
-        if (!enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term))
-            throw std::invalid_argument("duplicate keys in map");
-        return map_term;
-    }
-};
-
-
 namespace detail
 {
+
+template <typename Map>
+Map decode_map(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    ErlNifMapIterator iter;
+    if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
+        throw std::invalid_argument("invalid map");
+
+    auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
+
+    Map _map;
+    if constexpr (requires { _map.reserve(0); })
+    {
+        std::size_t size;
+        enif_get_map_size(env, term, &size);
+        _map.reserve(size);
+    }
+
+    ERL_NIF_TERM key, value;
+    while (enif_map_iterator_get_pair(env, &iter, &key, &value))
+    {
+        _map.emplace(
+            type_cast<typename Map::key_type>::from_term(env, key),
+            type_cast<typename Map::mapped_type>::from_term(env, value));
+        enif_map_iterator_next(env, &iter);
+    }
+
+    return _map;
+}
+
+template <typename Map>
+ERL_NIF_TERM encode_map(ErlNifEnv* env, const Map& _map)
+{
+    std::vector<ERL_NIF_TERM> keys;
+    std::vector<ERL_NIF_TERM> values;
+    keys.reserve(_map.size());
+    values.reserve(_map.size());
+
+    for (const auto& item : _map)
+    {
+        keys.push_back(type_cast<typename Map::key_type>::to_term(env, item.first));
+        values.push_back(type_cast<typename Map::mapped_type>::to_term(env, item.second));
+    }
+
+    ERL_NIF_TERM map_term;
+    if (!enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term))
+        throw std::invalid_argument("duplicate keys in map");
+    return map_term;
+}
 
 template <typename Map>
 Map decode_multimap(ErlNifEnv* env, ERL_NIF_TERM term, const char* label)
@@ -1308,6 +1194,40 @@ ERL_NIF_TERM encode_multimap(ErlNifEnv* env, const Map& _map)
 }
 
 }  // namespace detail
+
+
+template <InnerType K, InnerType V>
+struct type_cast<std::unordered_map<K, V>>
+{
+    using map_type = std::unordered_map<std::decay_t<K>, std::decay_t<V>>;
+
+    static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return detail::decode_map<map_type>(env, term);
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
+    {
+        return detail::encode_map(env, _map);
+    }
+};
+
+
+template <InnerType K, InnerType V>
+struct type_cast<std::map<K, V>>
+{
+    using map_type = std::map<std::decay_t<K>, std::decay_t<V>>;
+
+    static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return detail::decode_map<map_type>(env, term);
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
+    {
+        return detail::encode_map(env, _map);
+    }
+};
 
 
 template <InnerType K, InnerType V>
@@ -1456,21 +1376,15 @@ struct type_cast<gleam::option<T>>
 {
     static gleam::option<T> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        if (enif_is_atom(env, term))
-        {
-            char buf[8];
-            if (enif_get_atom(env, term, buf, sizeof(buf), ERL_NIF_LATIN1) == 5 && std::string_view(buf, 4) == "none")
-                return std::nullopt;
-            throw std::invalid_argument("expected Gleam Option none or {some, value}, got: " + format_term(term));
-        }
+        if (detail::is_atom(env, term, "none"))
+            return std::nullopt;
 
         const ERL_NIF_TERM* tuple = nullptr;
         int arity = 0;
         if (!enif_get_tuple(env, term, &arity, &tuple) || arity != 2)
             throw std::invalid_argument("expected Gleam Option none or {some, value}, got: " + format_term(term));
 
-        char tag[8];
-        if (enif_get_atom(env, tuple[0], tag, sizeof(tag), ERL_NIF_LATIN1) != 5 || std::string_view(tag, 4) != "some")
+        if (!detail::is_atom(env, tuple[0], "some"))
             throw std::invalid_argument("expected Gleam Option {some, value}, got: " + format_term(term));
 
         return gleam::option<T>{type_cast<T>::from_term(env, tuple[1])};

@@ -296,6 +296,12 @@ uint8_t uint8_identity(uint8_t x)
 }
 
 
+char char_identity(char x)
+{
+    return x;
+}
+
+
 int16_t int16_identity(int16_t x)
 {
     return x;
@@ -491,6 +497,7 @@ MODULE(
     def(raise_runtime_error_test, DirtyFlags::NotDirty),
     def(int8_identity, DirtyFlags::NotDirty),
     def(uint8_identity, DirtyFlags::NotDirty),
+    def(char_identity, DirtyFlags::NotDirty),
     def(int16_identity, DirtyFlags::NotDirty),
     def(float_identity, DirtyFlags::NotDirty),
     def(multimap_test, DirtyFlags::NotDirty),

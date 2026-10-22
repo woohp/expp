@@ -310,6 +310,24 @@ defmodule MyModTest do
       assert_raise ArgumentError, fn -> MyMod.uint8_identity(-1) end
     end
 
+    test "char decodes as an integer" do
+      assert MyMod.char_identity(65) == 65
+    end
+
+    test "error messages distinguish non-integers from out-of-range integers" do
+      assert_raise ArgumentError, "expected an integer, got: foo", fn ->
+        MyMod.int_identity(:foo)
+      end
+
+      assert_raise ArgumentError, "integer out of range [0, 255], got: -1", fn ->
+        MyMod.uint8_identity(-1)
+      end
+
+      assert_raise ArgumentError, "integer out of range [-128, 127], got: 1000000000000", fn ->
+        MyMod.int8_identity(1_000_000_000_000)
+      end
+    end
+
     test "int16_t valid values" do
       assert MyMod.int16_identity(0) == 0
       assert MyMod.int16_identity(32767) == 32767

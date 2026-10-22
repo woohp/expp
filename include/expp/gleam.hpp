@@ -118,21 +118,15 @@ struct type_cast<gleam::option<T>>
 {
     static gleam::option<T> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        if (enif_is_atom(env, term))
-        {
-            char buf[8];
-            if (enif_get_atom(env, term, buf, sizeof(buf), ERL_NIF_LATIN1) == 5 && std::string_view(buf, 4) == "none")
-                return std::nullopt;
-            throw std::invalid_argument("expected Gleam Option none or {some, value}, got: " + format_term(term));
-        }
+        if (detail::is_atom(env, term, "none"))
+            return std::nullopt;
 
         const ERL_NIF_TERM* tuple = nullptr;
         int arity = 0;
         if (!enif_get_tuple(env, term, &arity, &tuple) || arity != 2)
             throw std::invalid_argument("expected Gleam Option none or {some, value}, got: " + format_term(term));
 
-        char tag[8];
-        if (enif_get_atom(env, tuple[0], tag, sizeof(tag), ERL_NIF_LATIN1) != 5 || std::string_view(tag, 4) != "some")
+        if (!detail::is_atom(env, tuple[0], "some"))
             throw std::invalid_argument("expected Gleam Option {some, value}, got: " + format_term(term));
 
         return gleam::option<T>{type_cast<T>::from_term(env, tuple[1])};

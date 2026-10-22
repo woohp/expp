@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <erl_nif.h>
 #include <expected>
-#include <iostream>
 #include <limits>
 #include <optional>
 #include <stdexcept>
@@ -63,71 +62,43 @@ inline std::string format_term(ERL_NIF_TERM term)
 }
 
 
+namespace detail
+{
+inline bool is_atom(ErlNifEnv* env, ERL_NIF_TERM term, const char* name)
+{
+    return enif_is_identical(term, enif_make_atom(env, name));
+}
+}  // namespace detail
+
+
 template <std::integral T>
 struct type_cast<T>
 {
+    using wide_type = std::conditional_t<std::is_signed_v<T>, ErlNifSInt64, ErlNifUInt64>;
+
     static T from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
+        wide_type i;
+        bool ok;
         if constexpr (std::is_signed_v<T>)
-        {
-            if constexpr (sizeof(T) < 8)
-            {
-                int i;
-                if (!enif_get_int(env, term, &i))
-                    throw std::invalid_argument("expected an integer, got: " + format_term(term));
-                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
-                    throw std::invalid_argument("integer argument out of bounds...");
-                return static_cast<T>(i);
-            }
-            else
-            {
-                ErlNifSInt64 i;
-                if (!enif_get_int64(env, term, &i))
-                    throw std::invalid_argument("expected an int64, got: " + format_term(term));
-                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
-                    throw std::invalid_argument("integer argument out of bounds...");
-                return static_cast<T>(i);
-            }
-        }
+            ok = enif_get_int64(env, term, &i);
         else
-        {
-            if constexpr (sizeof(T) < 8)
-            {
-                unsigned int i;
-                if (!enif_get_uint(env, term, &i))
-                    throw std::invalid_argument("expected an unsigned int, got: " + format_term(term));
-                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
-                    throw std::invalid_argument("integer argument out of bounds...");
-                return static_cast<T>(i);
-            }
-            else
-            {
-                ErlNifUInt64 i;
-                if (!enif_get_uint64(env, term, &i))
-                    throw std::invalid_argument("expected a uint64, got: " + format_term(term));
-                if (i < std::numeric_limits<T>::min() || i > std::numeric_limits<T>::max())
-                    throw std::invalid_argument("integer argument out of bounds...");
-                return static_cast<T>(i);
-            }
-        }
+            ok = enif_get_uint64(env, term, &i);
+        if (ok && i >= std::numeric_limits<T>::min() && i <= std::numeric_limits<T>::max())
+            return static_cast<T>(i);
+        if (enif_term_type(env, term) != ERL_NIF_TERM_TYPE_INTEGER)
+            throw std::invalid_argument("expected an integer, got: " + format_term(term));
+        throw std::invalid_argument(
+            "integer out of range [" + std::to_string(std::numeric_limits<T>::min()) + ", " +
+            std::to_string(std::numeric_limits<T>::max()) + "], got: " + format_term(term));
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, T i) noexcept
     {
         if constexpr (std::is_signed_v<T>)
-        {
-            if constexpr (sizeof(T) < 8)
-                return enif_make_int(env, i);
-            else
-                return enif_make_int64(env, static_cast<ErlNifSInt64>(i));
-        }
+            return enif_make_int64(env, i);
         else
-        {
-            if constexpr (sizeof(T) < 8)
-                return enif_make_uint(env, i);
-            else
-                return enif_make_uint64(env, static_cast<ErlNifUInt64>(i));
-        }
+            return enif_make_uint64(env, i);
     }
 };
 
@@ -152,30 +123,6 @@ struct type_cast<T>
 };
 
 
-// Note: from_term always copies from the binary data into a new std::string.
-// For read-only access without copying, prefer std::string_view.
-template <>
-struct type_cast<std::string>
-{
-    static std::string from_term(ErlNifEnv* env, ERL_NIF_TERM term)
-    {
-        ErlNifBinary binary_info;
-        if (!enif_inspect_binary(env, term, &binary_info))
-            throw std::invalid_argument("expected a binary, got: " + format_term(term));
-        return std::string(reinterpret_cast<const char*>(binary_info.data), binary_info.size);
-    }
-
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string& s)
-    {
-        ErlNifBinary binary_info;
-        if (!enif_alloc_binary(s.size(), &binary_info))
-            throw std::bad_alloc{};
-        std::copy_n(s.data(), s.size(), binary_info.data);
-        return enif_make_binary(env, &binary_info);
-    }
-};
-
-
 template <>
 struct type_cast<std::string_view>
 {
@@ -183,7 +130,7 @@ struct type_cast<std::string_view>
     {
         ErlNifBinary binary_info;
         if (!enif_inspect_binary(env, term, &binary_info))
-            throw std::invalid_argument("expected a string, got: " + format_term(term));
+            throw std::invalid_argument("expected a binary, got: " + format_term(term));
         return std::string_view(reinterpret_cast<const char*>(binary_info.data), binary_info.size);
     }
 
@@ -194,6 +141,23 @@ struct type_cast<std::string_view>
             throw std::bad_alloc{};
         std::copy_n(s.data(), s.size(), binary_info.data);
         return enif_make_binary(env, &binary_info);
+    }
+};
+
+
+// Note: from_term always copies from the binary data into a new std::string.
+// For read-only access without copying, prefer std::string_view.
+template <>
+struct type_cast<std::string>
+{
+    static std::string from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return std::string(type_cast<std::string_view>::from_term(env, term));
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string& s)
+    {
+        return type_cast<std::string_view>::to_term(env, s);
     }
 };
 
@@ -243,11 +207,6 @@ struct type_cast<atom>
     {
         return enif_make_atom_len(env, a.name.data(), a.name.length());
     }
-
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string_view& s) noexcept
-    {
-        return enif_make_atom_len(env, s.data(), s.length());
-    }
 };
 
 
@@ -256,18 +215,11 @@ struct type_cast<bool>
 {
     static bool from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        char buf[8];
-        std::size_t bytes_read = enif_get_atom(env, term, buf, 8, ERL_NIF_LATIN1);
-        if (bytes_read == 0)
-            throw std::invalid_argument("expected a boolean, got: " + format_term(term));
-
-        std::string_view atom_str(buf, bytes_read - 1);
-        if (atom_str == "true"sv)
+        if (detail::is_atom(env, term, "true"))
             return true;
-        else if (atom_str == "false"sv)
+        if (detail::is_atom(env, term, "false"))
             return false;
-        else
-            throw std::invalid_argument("expected a boolean (true/false), got: " + format_term(term));
+        throw std::invalid_argument("expected a boolean (true/false), got: " + format_term(term));
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, bool b) noexcept
@@ -375,9 +327,9 @@ public:
     constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const variant_type& item) noexcept
     {
         return std::visit(
-            [env, &item](auto&& arg) {
+            [env](const auto& arg) {
                 using T = std::decay_t<decltype(arg)>;
-                return type_cast<T>::to_term(env, std::get<T>(item));
+                return type_cast<T>::to_term(env, arg);
             },
             item);
     }
@@ -398,14 +350,9 @@ public:
         if (!enif_get_tuple(env, term, &arity, &tuple) || arity != 2)
             throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
 
-        char tag[8];
-        if (!enif_get_atom(env, tuple[0], tag, sizeof(tag), ERL_NIF_LATIN1))
-            throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
-
-        std::string_view tag_view(tag, std::char_traits<char>::length(tag));
-        if (tag_view == "ok")
+        if (detail::is_atom(env, tuple[0], "ok"))
             return type_cast<T>::from_term(env, tuple[1]);
-        if (tag_view == "error")
+        if (detail::is_atom(env, tuple[0], "error"))
             return std::unexpected(type_cast<E>::from_term(env, tuple[1]));
 
         throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
@@ -430,10 +377,7 @@ struct type_cast<std::optional<T>>
 
         if (enif_is_atom(env, term))
         {
-            char buf[8];
-            if (enif_get_atom(env, term, buf, 8, ERL_NIF_LATIN1) != 4)
-                throw std::invalid_argument("expected nil, got: " + format_term(term));
-            if (std::string_view(buf, 3) != "nil")
+            if (!detail::is_atom(env, term, "nil"))
                 throw std::invalid_argument("expected nil, got: " + format_term(term));
             return std::nullopt;
         }

@@ -98,115 +98,57 @@ public:
 };
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::unordered_map<K, V>>
-{
-private:
-    typedef std::decay_t<K> key_type;
-    typedef std::decay_t<V> value_type;
-    typedef std::unordered_map<key_type, value_type> map_type;
-
-public:
-    constexpr static map_type from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
-    {
-        map_type _map;
-        std::size_t size;
-        if (!enif_get_map_size(env, term, &size))
-            throw std::invalid_argument("invalid map");
-        _map.reserve(size);
-
-        ErlNifMapIterator iter;
-        if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
-            throw std::invalid_argument("invalid map");
-
-        auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
-
-        ERL_NIF_TERM key, value;
-        while (enif_map_iterator_get_pair(env, &iter, &key, &value))
-        {
-            _map.emplace(type_cast<key_type>::from_term(env, key), type_cast<value_type>::from_term(env, value));
-            enif_map_iterator_next(env, &iter);
-        }
-
-        return _map;
-    }
-
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
-    {
-        std::vector<ERL_NIF_TERM> keys;
-        std::vector<ERL_NIF_TERM> values;
-        keys.reserve(_map.size());
-        values.reserve(_map.size());
-
-        for (const auto& item : _map)
-        {
-            keys.push_back(type_cast<key_type>::to_term(env, item.first));
-            values.push_back(type_cast<value_type>::to_term(env, item.second));
-        }
-
-        ERL_NIF_TERM map_term;
-        if (!enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term))
-            throw std::invalid_argument("duplicate keys in map");
-        return map_term;
-    }
-};
-
-
-template <InnerType K, InnerType V>
-struct type_cast<std::map<K, V>>
-{
-private:
-    typedef std::decay_t<K> key_type;
-    typedef std::decay_t<V> value_type;
-    typedef std::map<key_type, value_type> map_type;
-
-public:
-    constexpr static map_type from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
-    {
-        map_type _map;
-        std::size_t size;
-        if (!enif_get_map_size(env, term, &size))
-            throw std::invalid_argument("invalid map");
-
-        ErlNifMapIterator iter;
-        if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
-            throw std::invalid_argument("invalid map");
-
-        auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
-
-        ERL_NIF_TERM key, value;
-        while (enif_map_iterator_get_pair(env, &iter, &key, &value))
-        {
-            _map.emplace(type_cast<key_type>::from_term(env, key), type_cast<value_type>::from_term(env, value));
-            enif_map_iterator_next(env, &iter);
-        }
-
-        return _map;
-    }
-
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
-    {
-        std::vector<ERL_NIF_TERM> keys;
-        std::vector<ERL_NIF_TERM> values;
-        keys.reserve(_map.size());
-        values.reserve(_map.size());
-
-        for (const auto& item : _map)
-        {
-            keys.push_back(type_cast<key_type>::to_term(env, item.first));
-            values.push_back(type_cast<value_type>::to_term(env, item.second));
-        }
-
-        ERL_NIF_TERM map_term;
-        if (!enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term))
-            throw std::invalid_argument("duplicate keys in map");
-        return map_term;
-    }
-};
-
-
 namespace detail
 {
+
+template <typename Map>
+Map decode_map(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    ErlNifMapIterator iter;
+    if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
+        throw std::invalid_argument("invalid map");
+
+    auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
+
+    Map _map;
+    if constexpr (requires { _map.reserve(0); })
+    {
+        std::size_t size;
+        enif_get_map_size(env, term, &size);
+        _map.reserve(size);
+    }
+
+    ERL_NIF_TERM key, value;
+    while (enif_map_iterator_get_pair(env, &iter, &key, &value))
+    {
+        _map.emplace(
+            type_cast<typename Map::key_type>::from_term(env, key),
+            type_cast<typename Map::mapped_type>::from_term(env, value));
+        enif_map_iterator_next(env, &iter);
+    }
+
+    return _map;
+}
+
+template <typename Map>
+ERL_NIF_TERM encode_map(ErlNifEnv* env, const Map& _map)
+{
+    std::vector<ERL_NIF_TERM> keys;
+    std::vector<ERL_NIF_TERM> values;
+    keys.reserve(_map.size());
+    values.reserve(_map.size());
+
+    for (const auto& item : _map)
+    {
+        keys.push_back(type_cast<typename Map::key_type>::to_term(env, item.first));
+        values.push_back(type_cast<typename Map::mapped_type>::to_term(env, item.second));
+    }
+
+    ERL_NIF_TERM map_term;
+    if (!enif_make_map_from_arrays(env, keys.data(), values.data(), keys.size(), &map_term))
+        throw std::invalid_argument("duplicate keys in map");
+    return map_term;
+}
 
 template <typename Map>
 Map decode_multimap(ErlNifEnv* env, ERL_NIF_TERM term, const char* label)
@@ -245,6 +187,40 @@ ERL_NIF_TERM encode_multimap(ErlNifEnv* env, const Map& _map)
 }
 
 }  // namespace detail
+
+
+template <InnerType K, InnerType V>
+struct type_cast<std::unordered_map<K, V>>
+{
+    using map_type = std::unordered_map<std::decay_t<K>, std::decay_t<V>>;
+
+    static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return detail::decode_map<map_type>(env, term);
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
+    {
+        return detail::encode_map(env, _map);
+    }
+};
+
+
+template <InnerType K, InnerType V>
+struct type_cast<std::map<K, V>>
+{
+    using map_type = std::map<std::decay_t<K>, std::decay_t<V>>;
+
+    static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        return detail::decode_map<map_type>(env, term);
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
+    {
+        return detail::encode_map(env, _map);
+    }
+};
 
 
 template <InnerType K, InnerType V>
