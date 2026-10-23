@@ -347,6 +347,8 @@ int throw_error(int i)
         throw erl_error<string>("some error");
     if (i == 1)
         throw erl_error<int>(42);
+    if (i == 2)
+        throw erl_error<atom>("\xff"_atom);
     return i;
 }
 

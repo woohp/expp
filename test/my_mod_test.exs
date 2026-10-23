@@ -204,6 +204,10 @@ defmodule MyModTest do
     assert MyMod.throw_error(10) == 10
     assert MyMod.throw_error(0) == {:error, "some error"}
     assert MyMod.throw_error(1) == {:error, 42}
+
+    assert_raise RuntimeError, ~r/invalid atom name/, fn ->
+      MyMod.throw_error(2)
+    end
   end
 
   test "Elixir exception structs" do

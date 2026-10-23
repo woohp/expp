@@ -73,7 +73,16 @@ inline ERL_NIF_TERM from_current_exception(ErlNifEnv* env)
     }
     catch (const erl_error_base& e)
     {
-        return e.get_term(env);
+        // Encoding the error value can throw too; handle that like any other exception,
+        // since a throw from this handler would escape the NIF.
+        try
+        {
+            return e.get_term(env);
+        }
+        catch (...)
+        {
+            return from_current_exception(env);
+        }
     }
     catch (const std::exception& e)
     {
