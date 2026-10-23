@@ -179,6 +179,38 @@ consteval ErlNifFunc def_impl(const char* name)
     };
     return entry;
 }
+
+
+template <auto callback, typename... Args>
+int guarded_callback(Args... args) noexcept
+{
+    try
+    {
+        return callback(args...);
+    }
+    catch (const std::exception& e)
+    {
+        enif_fprintf(stderr, "expp: NIF load/upgrade callback failed: %s\n", e.what());
+    }
+    catch (...)
+    {
+        enif_fprintf(stderr, "expp: NIF load/upgrade callback failed with an unknown exception\n");
+    }
+    return -1;
+}
+
+
+// Wraps a load or upgrade callback so an exception (e.g. from resource<T>::init) fails
+// the load instead of escaping into the VM. nullptr stays nullptr, since a null upgrade
+// callback tells the VM that upgrades are unsupported.
+template <auto callback>
+consteval auto guard()
+{
+    if constexpr (std::is_null_pointer_v<decltype(callback)>)
+        return nullptr;
+    else
+        return []<typename... Args>(int (*)(Args...)) { return &guarded_callback<callback, Args...>; }(callback);
+}
 }  // namespace expp
 
 
@@ -187,8 +219,8 @@ macro overloading trick:
 https://stackoverflow.com/questions/11761703/overloading-macro-on-number-of-arguments
 We want to be able to write:
 
-    def(add, "add)
-    def(add)  // defaults to using the same name as the function
+    def(add, DirtyFlags::NotDirty)                // named after the function
+    def(add_impl, "add", DirtyFlags::NotDirty)    // explicit name
 */
 #define DEF2(fn, dirty_flag) expp::def_impl<fn, dirty_flag>(#fn)
 #define DEF3(fn, name, dirty_flag) expp::def_impl<fn, dirty_flag>(name)
@@ -198,4 +230,4 @@ We want to be able to write:
 
 #define MODULE(NAME, LOAD, UPGRADE, UNLOAD, ...)                                                                       \
     ErlNifFunc _nif_funcs[] = {__VA_ARGS__};                                                                           \
-    ERL_NIF_INIT(NAME, _nif_funcs, LOAD, nullptr, UPGRADE, UNLOAD)
+    ERL_NIF_INIT(NAME, _nif_funcs, expp::guard<LOAD>(), nullptr, expp::guard<UPGRADE>(), UNLOAD)

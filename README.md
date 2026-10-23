@@ -9,8 +9,10 @@ int add(int a, int b) { return a + b; }
 
 MODULE(
     Elixir.MyMod,
-    def(add, expp::DirtyFlags::NotDirty)
-)
+    nullptr,
+    nullptr,
+    nullptr,
+    def(add, expp::DirtyFlags::NotDirty))
 ```
 
 ```elixir
@@ -345,7 +347,7 @@ Comparison works against `std::string_view` and other `atom` values. Atom names 
 
 ## NIF Registration
 
-Use `def(fn)` or `def(fn, "elixir_name")` inside the `MODULE(...)` macro. Arity is derived automatically from the C++ function signature via `function_traits` — you never specify it manually.
+Use `def(fn, flags)` or `def(fn, "elixir_name", flags)` inside the `MODULE(...)` macro. The dirty flag is required, so every NIF states which scheduler it runs on. Arity is derived automatically from the C++ function signature via `function_traits` — you never specify it manually.
 
 ```cpp
 MODULE(
@@ -371,6 +373,9 @@ int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
     return 0;
 }
 ```
+
+If `load` or `upgrade` throws (for example, when `init` fails), the message is printed to stderr and `:erlang.load_nif/2`
+returns an error instead of the VM crashing.
 
 ---
 
