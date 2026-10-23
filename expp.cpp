@@ -1,4 +1,5 @@
 #include "expp.hpp"
+#include <memory_resource>
 
 using namespace std;
 using namespace expp;
@@ -185,6 +186,33 @@ int atom_arguments(atom a)
 atom atom_returns(int i)
 {
     return i >= 0 ? "foo"_atom : "bar"_atom;
+}
+
+
+atom atom_identity(atom a)
+{
+    return a;
+}
+
+
+tuple<int, atom> tuple_with_invalid_atom()
+{
+    return make_tuple(1, "\xff"_atom);
+}
+
+
+std::pmr::vector<std::pmr::string> pmr_strings_identity(std::pmr::vector<std::pmr::string> v)
+{
+    return v;
+}
+
+
+vector<int> descending_keys(map<int, int, std::greater<>> m)
+{
+    vector<int> keys;
+    for (const auto& [k, v] : m)
+        keys.push_back(k);
+    return keys;
 }
 
 
@@ -411,6 +439,22 @@ yielding<int> yield_exhaustion()
     co_return;
 }
 
+
+yielding<int> yield_invalid_argument(int n)
+{
+    co_yield nullopt;
+    if (n < 0)
+        throw std::invalid_argument("n must be >= 0");
+    co_yield n;
+}
+
+
+yielding<int> yield_unknown_exception()
+{
+    co_yield nullopt;
+    throw 42;
+}
+
 struct MyPersistentType
 {
     int value;
@@ -491,6 +535,10 @@ MODULE(
     def(get_expected_stringview_error, DirtyFlags::NotDirty),
     def(atom_arguments, DirtyFlags::NotDirty),
     def(atom_returns, DirtyFlags::NotDirty),
+    def(atom_identity, DirtyFlags::NotDirty),
+    def(tuple_with_invalid_atom, DirtyFlags::NotDirty),
+    def(pmr_strings_identity, DirtyFlags::NotDirty),
+    def(descending_keys, DirtyFlags::NotDirty),
     def(simple_coroutine, DirtyFlags::NotDirty),
     def(nested_vector, DirtyFlags::NotDirty),
     def(ordered_map_test, DirtyFlags::NotDirty),
@@ -523,5 +571,7 @@ MODULE(
     def(schedule_on_steps, DirtyFlags::NotDirty),
     def(schedule_on_steps, "schedule_on_steps_dirty", DirtyFlags::DirtyCpu),
     def(yield_exhaustion, DirtyFlags::NotDirty),
+    def(yield_invalid_argument, DirtyFlags::NotDirty),
+    def(yield_unknown_exception, DirtyFlags::NotDirty),
 
     def(yield_persistent_type, DirtyFlags::NotDirty), )

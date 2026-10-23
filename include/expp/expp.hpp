@@ -71,14 +71,14 @@ inline std::nullopt_t schedule_on(DirtyFlags flags)
 }
 
 
-// Runs one step of a coroutine, returning its result, or 0 if it suspended.
-inline ERL_NIF_TERM run_step(ErlNifEnv* env, yielding_resource_base& coroutine)
+// Runs one step of a coroutine, returning its result, or nullopt if it suspended.
+inline std::optional<ERL_NIF_TERM> run_step(ErlNifEnv* env, yielding_resource_base& coroutine)
 {
     const bool on_normal_scheduler = coroutine.dirty_flags == static_cast<int>(DirtyFlags::NotDirty);
     const auto start_time = std::chrono::steady_clock::now();
 
     running_coroutine = &coroutine;
-    const ERL_NIF_TERM result = coroutine.step(env);
+    const std::optional<ERL_NIF_TERM> result = coroutine.step(env);
     running_coroutine = nullptr;
 
     // Report the share of a normal scheduler's ~1 ms timeslice that the step used.
@@ -97,8 +97,8 @@ inline ERL_NIF_TERM coroutine_step(ErlNifEnv* env, int, const ERL_NIF_TERM argv[
     auto coroutine_resource = type_cast<yielding_resource_t>::from_term(env, argv[0]);
     auto& impl_ptr = coroutine_resource.get();
 
-    if (ERL_NIF_TERM step_result = run_step(env, *impl_ptr); step_result)
-        return step_result;
+    if (auto step_result = run_step(env, *impl_ptr))
+        return *step_result;
     else if (impl_ptr->is_exhausted())
         return exceptions::raise_runtime_error(env, "yielding NIF ended without final result");
     else
@@ -142,8 +142,8 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             auto impl = std::make_unique<yielding_resource_impl<return_type>>(std::move(ret));
             impl->dirty_flags = static_cast<int>(dirty_flags);
 
-            if (auto step_output = run_step(env, *impl); step_output)
-                return step_output;
+            if (auto step_output = run_step(env, *impl))
+                return *step_output;
             else if (impl->is_exhausted())
                 return exceptions::raise_runtime_error(env, "yielding NIF must contain at least one co_yield");
             else
@@ -161,21 +161,9 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             return type_cast<std::decay_t<decltype(ret)>>::to_term(env, std::move(ret));
         }
     }
-    catch (const std::invalid_argument& e)
-    {
-        return exceptions::raise_argument_error(env, e.what());
-    }
-    catch (const erl_error_base& e)
-    {
-        return e.get_term(env);
-    }
-    catch (const std::exception& e)
-    {
-        return exceptions::raise_runtime_error(env, e.what());
-    }
     catch (...)
     {
-        return exceptions::raise_runtime_error(env, "unknown exception");
+        return exceptions::from_current_exception(env);
     }
 }
 

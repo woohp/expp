@@ -287,6 +287,10 @@ struct type_cast;
 
 // --- atom.hpp ---
 
+#if ERL_NIF_MAJOR_VERSION < 2 || (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION < 17)
+#error "expp requires NIF version 2.17 (OTP 26) or later for UTF-8 atoms"
+#endif
+
 
 namespace expp
 {
@@ -657,17 +661,19 @@ struct type_cast<std::string_view>
 };
 
 
-// Note: from_term always copies from the binary data into a new std::string.
+// Note: from_term always copies from the binary data into a new string.
 // For read-only access without copying, prefer std::string_view.
-template <>
-struct type_cast<std::string>
+template <typename Alloc>
+struct type_cast<std::basic_string<char, std::char_traits<char>, Alloc>>
 {
-    static std::string from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    using string_type = std::basic_string<char, std::char_traits<char>, Alloc>;
+
+    static string_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return std::string(type_cast<std::string_view>::from_term(env, term));
+        return string_type(type_cast<std::string_view>::from_term(env, term));
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string& s)
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const string_type& s)
     {
         return type_cast<std::string_view>::to_term(env, s);
     }
@@ -705,19 +711,22 @@ struct type_cast<atom>
     static atom from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         unsigned len;
-        if (!enif_get_atom_length(env, term, &len, ERL_NIF_LATIN1))
+        if (!enif_get_atom_length(env, term, &len, ERL_NIF_UTF8))
             throw std::invalid_argument("expected an atom, got: " + format_term(term));
         std::string s(len, '\0');
 
-        if (enif_get_atom(env, term, s.data(), len + 1, ERL_NIF_LATIN1) != int(len + 1))
+        if (enif_get_atom(env, term, s.data(), len + 1, ERL_NIF_UTF8) != int(len + 1))
             throw std::invalid_argument("expected an atom, got: " + format_term(term));
 
         return atom{s};
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const atom& a) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const atom& a)
     {
-        return enif_make_atom_len(env, a.name.data(), a.name.length());
+        ERL_NIF_TERM term;
+        if (!enif_make_new_atom_len(env, a.name.data(), a.name.length(), &term, ERL_NIF_UTF8))
+            throw std::runtime_error("invalid atom name (not UTF-8 or longer than 255 characters): " + a.name);
+        return term;
     }
 };
 
@@ -760,7 +769,7 @@ struct type_cast<std::pair<X, Y>>
         return std::pair<X, Y>(type_cast<X>::from_term(env, tup_array[0]), type_cast<Y>::from_term(env, tup_array[1]));
     }
 
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::pair<X, Y>& item) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::pair<X, Y>& item)
     {
         return enif_make_tuple2(env, type_cast<X>::to_term(env, item.first), type_cast<Y>::to_term(env, item.second));
     }
@@ -780,8 +789,7 @@ private:
     }
 
     template <std::size_t... I>
-    constexpr static ERL_NIF_TERM to_term_impl(
-        ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
+    constexpr static ERL_NIF_TERM to_term_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>)
     {
         return enif_make_tuple(
             env, std::tuple_size_v<tuple_type>, type_cast<std::decay_t<Args>>::to_term(env, std::get<I>(items))...);
@@ -801,7 +809,7 @@ public:
         return from_term_impl(env, tup_array, std::index_sequence_for<Args...>{});
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const tuple_type& items) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const tuple_type& items)
     {
         return to_term_impl(env, items, std::index_sequence_for<Args...>{});
     }
@@ -836,7 +844,7 @@ public:
         return type_cast<std::variant<Args...>>::from_term_impl<0, Args...>(env, term);
     }
 
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const variant_type& item) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const variant_type& item)
     {
         return std::visit(
             [env](const auto& arg) {
@@ -870,7 +878,7 @@ public:
         throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const expected_type& result) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const expected_type& result)
     {
         if (result.has_value())
             return enif_make_tuple2(env, enif_make_atom(env, "ok"), type_cast<T>::to_term(env, *result));
@@ -976,6 +984,31 @@ inline ERL_NIF_TERM raise_runtime_error(ErlNifEnv* env, std::string_view message
 {
     return raise_error_with_message(env, "Elixir.RuntimeError", message);
 }
+
+// Converts the exception being handled into the NIF's result; call it from a catch block.
+inline ERL_NIF_TERM from_current_exception(ErlNifEnv* env)
+{
+    try
+    {
+        throw;
+    }
+    catch (const std::invalid_argument& e)
+    {
+        return raise_argument_error(env, e.what());
+    }
+    catch (const erl_error_base& e)
+    {
+        return e.get_term(env);
+    }
+    catch (const std::exception& e)
+    {
+        return raise_runtime_error(env, e.what());
+    }
+    catch (...)
+    {
+        return raise_runtime_error(env, "unknown exception");
+    }
+}
 }  // namespace exceptions
 }  // namespace expp
 
@@ -1013,31 +1046,32 @@ public:
 template <class F>
 scope_exit(F) -> scope_exit<F>;
 
-template <InnerType T>
-struct type_cast<std::vector<T>>
+template <InnerType T, typename Alloc>
+struct type_cast<std::vector<T, Alloc>>
 {
 private:
     typedef std::decay_t<T> item_type;
+    typedef std::vector<T, Alloc> vector_type;
 
 public:
-    constexpr static std::vector<T> from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
+    constexpr static vector_type from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
     {
         if constexpr ((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
         {
             ErlNifBinary binary_info;
             if (!enif_inspect_binary(env, term, &binary_info))
-                throw std::invalid_argument("invalid string");
+                throw std::invalid_argument("expected a binary, got: " + format_term(term));
             auto begin = reinterpret_cast<const T*>(binary_info.data);
             auto end = begin + binary_info.size;
-            return std::vector<T>(begin, end);
+            return vector_type(begin, end);
         }
         else
         {
             unsigned len = 0;
             if (!enif_get_list_length(env, term, &len))
-                throw std::invalid_argument("invalid vector");
+                throw std::invalid_argument("expected a list, got: " + format_term(term));
 
-            std::vector<T> items;
+            vector_type items;
             items.reserve(len);
             ERL_NIF_TERM list_term = term;
             for (unsigned i = 0; i < len; i++)
@@ -1052,7 +1086,7 @@ public:
         }
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::vector<T>& items)
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const vector_type& items)
     {
         if constexpr ((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
         {
@@ -1081,7 +1115,7 @@ Map decode_map(ErlNifEnv* env, ERL_NIF_TERM term)
 {
     ErlNifMapIterator iter;
     if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
-        throw std::invalid_argument("invalid map");
+        throw std::invalid_argument("expected a map, got: " + format_term(term));
 
     auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
 
@@ -1126,11 +1160,11 @@ ERL_NIF_TERM encode_map(ErlNifEnv* env, const Map& _map)
 }
 
 template <typename Map>
-Map decode_multimap(ErlNifEnv* env, ERL_NIF_TERM term, const char* label)
+Map decode_multimap(ErlNifEnv* env, ERL_NIF_TERM term)
 {
     unsigned len = 0;
     if (!enif_get_list_length(env, term, &len))
-        throw std::invalid_argument(std::string("invalid ") + label);
+        throw std::invalid_argument("expected a list of {key, value} tuples, got: " + format_term(term));
 
     Map _map;
     if constexpr (requires { _map.reserve(len); })
@@ -1140,8 +1174,7 @@ Map decode_multimap(ErlNifEnv* env, ERL_NIF_TERM term, const char* label)
     for (unsigned i = 0; i < len; i++)
     {
         ERL_NIF_TERM head, tail;
-        if (!enif_get_list_cell(env, list_term, &head, &tail))
-            throw std::invalid_argument(std::string("invalid ") + label);
+        enif_get_list_cell(env, list_term, &head, &tail);
         using pair_type = std::pair<typename Map::key_type, typename Map::mapped_type>;
         _map.emplace(type_cast<pair_type>::from_term(env, head));
         list_term = tail;
@@ -1164,10 +1197,10 @@ ERL_NIF_TERM encode_multimap(ErlNifEnv* env, const Map& _map)
 }  // namespace detail
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::unordered_map<K, V>>
+template <InnerType K, InnerType V, typename Hash, typename Eq, typename Alloc>
+struct type_cast<std::unordered_map<K, V, Hash, Eq, Alloc>>
 {
-    using map_type = std::unordered_map<std::decay_t<K>, std::decay_t<V>>;
+    using map_type = std::unordered_map<K, V, Hash, Eq, Alloc>;
 
     static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
@@ -1181,10 +1214,10 @@ struct type_cast<std::unordered_map<K, V>>
 };
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::map<K, V>>
+template <InnerType K, InnerType V, typename Compare, typename Alloc>
+struct type_cast<std::map<K, V, Compare, Alloc>>
 {
-    using map_type = std::map<std::decay_t<K>, std::decay_t<V>>;
+    using map_type = std::map<K, V, Compare, Alloc>;
 
     static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
@@ -1198,14 +1231,14 @@ struct type_cast<std::map<K, V>>
 };
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::multimap<K, V>>
+template <InnerType K, InnerType V, typename Compare, typename Alloc>
+struct type_cast<std::multimap<K, V, Compare, Alloc>>
 {
-    using map_type = std::multimap<std::decay_t<K>, std::decay_t<V>>;
+    using map_type = std::multimap<K, V, Compare, Alloc>;
 
     static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return detail::decode_multimap<map_type>(env, term, "multimap");
+        return detail::decode_multimap<map_type>(env, term);
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
@@ -1215,14 +1248,14 @@ struct type_cast<std::multimap<K, V>>
 };
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::unordered_multimap<K, V>>
+template <InnerType K, InnerType V, typename Hash, typename Eq, typename Alloc>
+struct type_cast<std::unordered_multimap<K, V, Hash, Eq, Alloc>>
 {
-    using map_type = std::unordered_multimap<std::decay_t<K>, std::decay_t<V>>;
+    using map_type = std::unordered_multimap<K, V, Hash, Eq, Alloc>;
 
     static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return detail::decode_multimap<map_type>(env, term, "unordered_multimap");
+        return detail::decode_multimap<map_type>(env, term);
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
@@ -1536,7 +1569,9 @@ struct yielding_resource_base
     int dirty_flags = 0;
 
     virtual ~yielding_resource_base() = default;
-    virtual ERL_NIF_TERM step(ErlNifEnv* env) = 0;
+    // Returns the NIF result, or nullopt if the coroutine suspended. Not a 0 sentinel,
+    // since a raised exception's term (THE_NON_VALUE) can be 0.
+    virtual std::optional<ERL_NIF_TERM> step(ErlNifEnv* env) = 0;
     virtual bool is_exhausted() = 0;
 };
 
@@ -1551,7 +1586,7 @@ struct yielding_resource_impl : yielding_resource_base
         coro(std::move(c))
     {}
 
-    ERL_NIF_TERM step(ErlNifEnv* env) override
+    std::optional<ERL_NIF_TERM> step(ErlNifEnv* env) override
     {
         try
         {
@@ -1561,21 +1596,17 @@ struct yielding_resource_impl : yielding_resource_base
                 ++(*it);
 
             if (*it == coro.end())
-                return 0;
+                return std::nullopt;
 
             const auto& out = **it;
             if (out)
                 return type_cast<std::decay_t<decltype(*out)>>::to_term(env, *out);
             else
-                return 0;
+                return std::nullopt;
         }
-        catch (const erl_error_base& e)
+        catch (...)
         {
-            return e.get_term(env);
-        }
-        catch (const std::exception& e)
-        {
-            return exceptions::raise_runtime_error(env, e.what());
+            return exceptions::from_current_exception(env);
         }
     }
 
@@ -1650,14 +1681,14 @@ inline std::nullopt_t schedule_on(DirtyFlags flags)
 }
 
 
-// Runs one step of a coroutine, returning its result, or 0 if it suspended.
-inline ERL_NIF_TERM run_step(ErlNifEnv* env, yielding_resource_base& coroutine)
+// Runs one step of a coroutine, returning its result, or nullopt if it suspended.
+inline std::optional<ERL_NIF_TERM> run_step(ErlNifEnv* env, yielding_resource_base& coroutine)
 {
     const bool on_normal_scheduler = coroutine.dirty_flags == static_cast<int>(DirtyFlags::NotDirty);
     const auto start_time = std::chrono::steady_clock::now();
 
     running_coroutine = &coroutine;
-    const ERL_NIF_TERM result = coroutine.step(env);
+    const std::optional<ERL_NIF_TERM> result = coroutine.step(env);
     running_coroutine = nullptr;
 
     // Report the share of a normal scheduler's ~1 ms timeslice that the step used.
@@ -1676,8 +1707,8 @@ inline ERL_NIF_TERM coroutine_step(ErlNifEnv* env, int, const ERL_NIF_TERM argv[
     auto coroutine_resource = type_cast<yielding_resource_t>::from_term(env, argv[0]);
     auto& impl_ptr = coroutine_resource.get();
 
-    if (ERL_NIF_TERM step_result = run_step(env, *impl_ptr); step_result)
-        return step_result;
+    if (auto step_result = run_step(env, *impl_ptr))
+        return *step_result;
     else if (impl_ptr->is_exhausted())
         return exceptions::raise_runtime_error(env, "yielding NIF ended without final result");
     else
@@ -1721,8 +1752,8 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             auto impl = std::make_unique<yielding_resource_impl<return_type>>(std::move(ret));
             impl->dirty_flags = static_cast<int>(dirty_flags);
 
-            if (auto step_output = run_step(env, *impl); step_output)
-                return step_output;
+            if (auto step_output = run_step(env, *impl))
+                return *step_output;
             else if (impl->is_exhausted())
                 return exceptions::raise_runtime_error(env, "yielding NIF must contain at least one co_yield");
             else
@@ -1740,21 +1771,9 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             return type_cast<std::decay_t<decltype(ret)>>::to_term(env, std::move(ret));
         }
     }
-    catch (const std::invalid_argument& e)
-    {
-        return exceptions::raise_argument_error(env, e.what());
-    }
-    catch (const erl_error_base& e)
-    {
-        return e.get_term(env);
-    }
-    catch (const std::exception& e)
-    {
-        return exceptions::raise_runtime_error(env, e.what());
-    }
     catch (...)
     {
-        return exceptions::raise_runtime_error(env, "unknown exception");
+        return exceptions::from_current_exception(env);
     }
 }
 

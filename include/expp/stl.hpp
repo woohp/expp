@@ -38,31 +38,32 @@ public:
 template <class F>
 scope_exit(F) -> scope_exit<F>;
 
-template <InnerType T>
-struct type_cast<std::vector<T>>
+template <InnerType T, typename Alloc>
+struct type_cast<std::vector<T, Alloc>>
 {
 private:
     typedef std::decay_t<T> item_type;
+    typedef std::vector<T, Alloc> vector_type;
 
 public:
-    constexpr static std::vector<T> from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
+    constexpr static vector_type from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
     {
         if constexpr ((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
         {
             ErlNifBinary binary_info;
             if (!enif_inspect_binary(env, term, &binary_info))
-                throw std::invalid_argument("invalid string");
+                throw std::invalid_argument("expected a binary, got: " + format_term(term));
             auto begin = reinterpret_cast<const T*>(binary_info.data);
             auto end = begin + binary_info.size;
-            return std::vector<T>(begin, end);
+            return vector_type(begin, end);
         }
         else
         {
             unsigned len = 0;
             if (!enif_get_list_length(env, term, &len))
-                throw std::invalid_argument("invalid vector");
+                throw std::invalid_argument("expected a list, got: " + format_term(term));
 
-            std::vector<T> items;
+            vector_type items;
             items.reserve(len);
             ERL_NIF_TERM list_term = term;
             for (unsigned i = 0; i < len; i++)
@@ -77,7 +78,7 @@ public:
         }
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::vector<T>& items)
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const vector_type& items)
     {
         if constexpr ((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
         {
@@ -106,7 +107,7 @@ Map decode_map(ErlNifEnv* env, ERL_NIF_TERM term)
 {
     ErlNifMapIterator iter;
     if (!enif_map_iterator_create(env, term, &iter, ERL_NIF_MAP_ITERATOR_FIRST))
-        throw std::invalid_argument("invalid map");
+        throw std::invalid_argument("expected a map, got: " + format_term(term));
 
     auto guard = scope_exit([env, &iter]() { enif_map_iterator_destroy(env, &iter); });
 
@@ -151,11 +152,11 @@ ERL_NIF_TERM encode_map(ErlNifEnv* env, const Map& _map)
 }
 
 template <typename Map>
-Map decode_multimap(ErlNifEnv* env, ERL_NIF_TERM term, const char* label)
+Map decode_multimap(ErlNifEnv* env, ERL_NIF_TERM term)
 {
     unsigned len = 0;
     if (!enif_get_list_length(env, term, &len))
-        throw std::invalid_argument(std::string("invalid ") + label);
+        throw std::invalid_argument("expected a list of {key, value} tuples, got: " + format_term(term));
 
     Map _map;
     if constexpr (requires { _map.reserve(len); })
@@ -165,8 +166,7 @@ Map decode_multimap(ErlNifEnv* env, ERL_NIF_TERM term, const char* label)
     for (unsigned i = 0; i < len; i++)
     {
         ERL_NIF_TERM head, tail;
-        if (!enif_get_list_cell(env, list_term, &head, &tail))
-            throw std::invalid_argument(std::string("invalid ") + label);
+        enif_get_list_cell(env, list_term, &head, &tail);
         using pair_type = std::pair<typename Map::key_type, typename Map::mapped_type>;
         _map.emplace(type_cast<pair_type>::from_term(env, head));
         list_term = tail;
@@ -189,10 +189,10 @@ ERL_NIF_TERM encode_multimap(ErlNifEnv* env, const Map& _map)
 }  // namespace detail
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::unordered_map<K, V>>
+template <InnerType K, InnerType V, typename Hash, typename Eq, typename Alloc>
+struct type_cast<std::unordered_map<K, V, Hash, Eq, Alloc>>
 {
-    using map_type = std::unordered_map<std::decay_t<K>, std::decay_t<V>>;
+    using map_type = std::unordered_map<K, V, Hash, Eq, Alloc>;
 
     static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
@@ -206,10 +206,10 @@ struct type_cast<std::unordered_map<K, V>>
 };
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::map<K, V>>
+template <InnerType K, InnerType V, typename Compare, typename Alloc>
+struct type_cast<std::map<K, V, Compare, Alloc>>
 {
-    using map_type = std::map<std::decay_t<K>, std::decay_t<V>>;
+    using map_type = std::map<K, V, Compare, Alloc>;
 
     static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
@@ -223,14 +223,14 @@ struct type_cast<std::map<K, V>>
 };
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::multimap<K, V>>
+template <InnerType K, InnerType V, typename Compare, typename Alloc>
+struct type_cast<std::multimap<K, V, Compare, Alloc>>
 {
-    using map_type = std::multimap<std::decay_t<K>, std::decay_t<V>>;
+    using map_type = std::multimap<K, V, Compare, Alloc>;
 
     static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return detail::decode_multimap<map_type>(env, term, "multimap");
+        return detail::decode_multimap<map_type>(env, term);
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)
@@ -240,14 +240,14 @@ struct type_cast<std::multimap<K, V>>
 };
 
 
-template <InnerType K, InnerType V>
-struct type_cast<std::unordered_multimap<K, V>>
+template <InnerType K, InnerType V, typename Hash, typename Eq, typename Alloc>
+struct type_cast<std::unordered_multimap<K, V, Hash, Eq, Alloc>>
 {
-    using map_type = std::unordered_multimap<std::decay_t<K>, std::decay_t<V>>;
+    using map_type = std::unordered_multimap<K, V, Hash, Eq, Alloc>;
 
     static map_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return detail::decode_multimap<map_type>(env, term, "unordered_multimap");
+        return detail::decode_multimap<map_type>(env, term);
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const map_type& _map)

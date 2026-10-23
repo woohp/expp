@@ -27,6 +27,10 @@ defmodule MyMod do
   def get_expected_stringview_error(_i), do: :erlang.nif_error(:not_loaded)
   def atom_arguments(_a), do: :erlang.nif_error(:not_loaded)
   def atom_returns(_i), do: :erlang.nif_error(:not_loaded)
+  def atom_identity(_a), do: :erlang.nif_error(:not_loaded)
+  def tuple_with_invalid_atom(), do: :erlang.nif_error(:not_loaded)
+  def pmr_strings_identity(_v), do: :erlang.nif_error(:not_loaded)
+  def descending_keys(_m), do: :erlang.nif_error(:not_loaded)
   def simple_coroutine(_i), do: :erlang.nif_error(:not_loaded)
   def nested_vector(_v), do: :erlang.nif_error(:not_loaded)
   def ordered_map_test(_m), do: :erlang.nif_error(:not_loaded)
@@ -59,6 +63,8 @@ defmodule MyMod do
   def schedule_on_steps(), do: :erlang.nif_error(:not_loaded)
   def schedule_on_steps_dirty(), do: :erlang.nif_error(:not_loaded)
   def yield_exhaustion(), do: :erlang.nif_error(:not_loaded)
+  def yield_invalid_argument(_n), do: :erlang.nif_error(:not_loaded)
+  def yield_unknown_exception(), do: :erlang.nif_error(:not_loaded)
 
   def yield_persistent_type(_n), do: :erlang.nif_error(:not_loaded)
 end

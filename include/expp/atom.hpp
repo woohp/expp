@@ -1,6 +1,11 @@
 #pragma once
 #include "type_cast_fwd.hpp"
+#include <erl_nif.h>
 #include <string>
+
+#if ERL_NIF_MAJOR_VERSION < 2 || (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION < 17)
+#error "expp requires NIF version 2.17 (OTP 26) or later for UTF-8 atoms"
+#endif
 
 
 namespace expp

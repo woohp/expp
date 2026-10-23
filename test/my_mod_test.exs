@@ -160,6 +160,22 @@ defmodule MyModTest do
     assert MyMod.atom_returns(-123) == :bar
   end
 
+  test "UTF-8 atoms round-trip" do
+    assert MyMod.atom_identity(:héllo) == :héllo
+    assert MyMod.atom_identity(:日本語) == :日本語
+  end
+
+  test "invalid atom inside a returned tuple raises RuntimeError" do
+    assert_raise RuntimeError, ~r/invalid atom name/, fn ->
+      MyMod.tuple_with_invalid_atom()
+    end
+  end
+
+  test "containers with custom allocators and comparators" do
+    assert MyMod.pmr_strings_identity(["a", "bc"]) == ["a", "bc"]
+    assert MyMod.descending_keys(%{1 => 0, 3 => 0, 2 => 0}) == [3, 2, 1]
+  end
+
   test "nested vector" do
     assert MyMod.nested_vector([[1, 2], [3, 4]]) == [[2, 4], [6, 8]]
   end
@@ -186,7 +202,7 @@ defmodule MyModTest do
   end
 
   test "Elixir exception structs" do
-    assert_raise ArgumentError, "invalid vector", fn ->
+    assert_raise ArgumentError, ~s(expected a list, got: <<"not a list">>), fn ->
       MyMod.vector_times_int("not a list", 2)
     end
 
@@ -435,6 +451,20 @@ defmodule MyModTest do
       assert MyMod.yield_values(1) == 0
       assert MyMod.yield_values(3) == 20
       assert MyMod.yield_values(5) == 40
+    end
+
+    test "invalid_argument after a suspension raises ArgumentError" do
+      assert MyMod.yield_invalid_argument(7) == 7
+
+      assert_raise ArgumentError, "n must be >= 0", fn ->
+        MyMod.yield_invalid_argument(-1)
+      end
+    end
+
+    test "non-standard exception after a suspension raises RuntimeError" do
+      assert_raise RuntimeError, "unknown exception", fn ->
+        MyMod.yield_unknown_exception()
+      end
     end
 
     test "exhaustion without co_yield raises RuntimeError" do
