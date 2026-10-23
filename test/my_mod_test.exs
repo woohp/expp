@@ -30,6 +30,11 @@ defmodule MyModTest do
     assert MyMod.stringview_identity("123xyz") == "123xyz"
   end
 
+  test "vector<bool> is a list of booleans, not a binary" do
+    assert MyMod.bool_vector_negate([true, false, false]) == [false, true, true]
+    assert MyMod.bool_vector_negate([]) == []
+  end
+
   test "vector<char> should convert to/from binaries" do
     assert MyMod.vector_char_plus_one("23467") == "34578"
   end

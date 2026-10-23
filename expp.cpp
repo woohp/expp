@@ -13,6 +13,13 @@ vector<int> vector_times_int(vector<int> v, int i)
 }
 
 
+vector<bool> bool_vector_negate(vector<bool> v)
+{
+    v.flip();
+    return v;
+}
+
+
 vector<char> vector_char_plus_one(vector<char> v)
 {
     for (auto& c : v)
@@ -563,6 +570,7 @@ MODULE(
     nullptr,
     nullptr,
     def(vector_times_int, DirtyFlags::NotDirty),
+    def(bool_vector_negate, DirtyFlags::NotDirty),
     def(vector_char_plus_one, DirtyFlags::NotDirty),
     def(vector_int8_plus_one, DirtyFlags::NotDirty),
     def(times2, DirtyFlags::NotDirty),
