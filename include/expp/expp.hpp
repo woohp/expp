@@ -26,7 +26,8 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     static constexpr size_t nargs = sizeof...(Args);
 
     template <func_type fn, std::size_t... I>
-    constexpr static R apply_impl(ErlNifEnv* env, const ERL_NIF_TERM argv[], std::index_sequence<I...>)
+    constexpr static R apply_impl(
+        [[maybe_unused]] ErlNifEnv* env, [[maybe_unused]] const ERL_NIF_TERM argv[], std::index_sequence<I...>)
     {
         return fn(type_cast<std::decay_t<Args>>::from_term(env, argv[I])...);
     }

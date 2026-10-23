@@ -17,6 +17,7 @@
 #include <memory>
 #include <new>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -1467,12 +1468,20 @@ struct is_resource_impl : std::false_type
 template <typename T>
 struct is_resource_impl<resource<T>> : std::true_type
 {};
+
+template <typename T>
+struct is_span_impl : std::false_type
+{};
+
+template <typename T, std::size_t N>
+struct is_span_impl<std::span<T, N>> : std::true_type
+{};
 }  // namespace detail
 
 
 // consteval check: true if T owns its data and is safe to persist
 // across a yielding NIF suspension. The default is false (fail-closed);
-// only known-safe types (scalars, fully-owned containers of scalars,
+// only known-safe types (non-pointer scalars, fully-owned containers of them,
 // and user types with is_yield_persistent<T> = true_type) pass.
 // Containers are decomposed generically via tuple_size, variant_size,
 // and value_type rather than enumerating every template.
@@ -1487,6 +1496,10 @@ consteval bool is_yield_safe()
 
     // resource<T> is tied to a specific NIF call environment
     if constexpr (detail::is_resource_impl<U>::value)
+        return false;
+
+    // Pointers and spans refer to memory they don't own, which may not outlive a suspension
+    if constexpr (std::is_pointer_v<U> || detail::is_span_impl<U>::value)
         return false;
 
     // Container/result-like types with value_type (vector, optional, array, map,
@@ -1518,7 +1531,7 @@ consteval bool is_yield_safe()
         }(std::make_index_sequence<std::variant_size_v<U>>());
     }
 
-    // Scalars (int, float, bool, enums, pointers) are always owned by value
+    // Remaining scalars (int, float, bool, enums) are always owned by value
     // and safe to persist across suspension.
     if constexpr (std::is_scalar_v<U>)
         return true;
@@ -1645,7 +1658,8 @@ struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
     static constexpr size_t nargs = sizeof...(Args);
 
     template <func_type fn, std::size_t... I>
-    constexpr static R apply_impl(ErlNifEnv* env, const ERL_NIF_TERM argv[], std::index_sequence<I...>)
+    constexpr static R apply_impl(
+        [[maybe_unused]] ErlNifEnv* env, [[maybe_unused]] const ERL_NIF_TERM argv[], std::index_sequence<I...>)
     {
         return fn(type_cast<std::decay_t<Args>>::from_term(env, argv[I])...);
     }

@@ -6,7 +6,7 @@ NIF_LDFLAGS += -undefined dynamic_lookup
 endif
 
 expp.so: expp.cpp expp.hpp
-	$(CXX) -I$(ERTS_INCLUDE_DIR) -std=c++23 -fPIC $(NIF_LDFLAGS) -o $@ expp.cpp
+	$(CXX) -I$(ERTS_INCLUDE_DIR) -std=c++23 -Wall -Wextra -Werror -fPIC $(NIF_LDFLAGS) -o $@ expp.cpp
 
 clean:
 	$(RM) expp.so
