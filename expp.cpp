@@ -568,6 +568,14 @@ int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 }
 
 
+using upgrade_callback = int (*)(ErlNifEnv*, void**, void**, ERL_NIF_TERM);
+constexpr upgrade_callback null_upgrade = nullptr;
+
+static_assert(expp::guard<nullptr>() == nullptr);
+static_assert(expp::guard<NULL>() == nullptr);
+static_assert(expp::guard<null_upgrade>() == nullptr);
+
+
 MODULE(
     Elixir.MyMod,
     load,
