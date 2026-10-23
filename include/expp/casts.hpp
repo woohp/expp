@@ -145,17 +145,19 @@ struct type_cast<std::string_view>
 };
 
 
-// Note: from_term always copies from the binary data into a new std::string.
+// Note: from_term always copies from the binary data into a new string.
 // For read-only access without copying, prefer std::string_view.
-template <>
-struct type_cast<std::string>
+template <typename Alloc>
+struct type_cast<std::basic_string<char, std::char_traits<char>, Alloc>>
 {
-    static std::string from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    using string_type = std::basic_string<char, std::char_traits<char>, Alloc>;
+
+    static string_type from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return std::string(type_cast<std::string_view>::from_term(env, term));
+        return string_type(type_cast<std::string_view>::from_term(env, term));
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string& s)
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const string_type& s)
     {
         return type_cast<std::string_view>::to_term(env, s);
     }
@@ -193,19 +195,22 @@ struct type_cast<atom>
     static atom from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
         unsigned len;
-        if (!enif_get_atom_length(env, term, &len, ERL_NIF_LATIN1))
+        if (!enif_get_atom_length(env, term, &len, ERL_NIF_UTF8))
             throw std::invalid_argument("expected an atom, got: " + format_term(term));
         std::string s(len, '\0');
 
-        if (enif_get_atom(env, term, s.data(), len + 1, ERL_NIF_LATIN1) != int(len + 1))
+        if (enif_get_atom(env, term, s.data(), len + 1, ERL_NIF_UTF8) != int(len + 1))
             throw std::invalid_argument("expected an atom, got: " + format_term(term));
 
         return atom{s};
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const atom& a) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const atom& a)
     {
-        return enif_make_atom_len(env, a.name.data(), a.name.length());
+        ERL_NIF_TERM term;
+        if (!enif_make_new_atom_len(env, a.name.data(), a.name.length(), &term, ERL_NIF_UTF8))
+            throw std::runtime_error("invalid atom name (not UTF-8 or longer than 255 characters): " + a.name);
+        return term;
     }
 };
 
@@ -248,7 +253,7 @@ struct type_cast<std::pair<X, Y>>
         return std::pair<X, Y>(type_cast<X>::from_term(env, tup_array[0]), type_cast<Y>::from_term(env, tup_array[1]));
     }
 
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::pair<X, Y>& item) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::pair<X, Y>& item)
     {
         return enif_make_tuple2(env, type_cast<X>::to_term(env, item.first), type_cast<Y>::to_term(env, item.second));
     }
@@ -268,8 +273,7 @@ private:
     }
 
     template <std::size_t... I>
-    constexpr static ERL_NIF_TERM to_term_impl(
-        ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>) noexcept
+    constexpr static ERL_NIF_TERM to_term_impl(ErlNifEnv* env, const tuple_type& items, std::index_sequence<I...>)
     {
         return enif_make_tuple(
             env, std::tuple_size_v<tuple_type>, type_cast<std::decay_t<Args>>::to_term(env, std::get<I>(items))...);
@@ -289,7 +293,7 @@ public:
         return from_term_impl(env, tup_array, std::index_sequence_for<Args...>{});
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const tuple_type& items) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const tuple_type& items)
     {
         return to_term_impl(env, items, std::index_sequence_for<Args...>{});
     }
@@ -324,7 +328,7 @@ public:
         return type_cast<std::variant<Args...>>::from_term_impl<0, Args...>(env, term);
     }
 
-    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const variant_type& item) noexcept
+    constexpr static ERL_NIF_TERM to_term(ErlNifEnv* env, const variant_type& item)
     {
         return std::visit(
             [env](const auto& arg) {
@@ -358,7 +362,7 @@ public:
         throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
     }
 
-    static ERL_NIF_TERM to_term(ErlNifEnv* env, const expected_type& result) noexcept
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const expected_type& result)
     {
         if (result.has_value())
             return enif_make_tuple2(env, enif_make_atom(env, "ok"), type_cast<T>::to_term(env, *result));

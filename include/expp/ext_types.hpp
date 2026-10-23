@@ -57,5 +57,30 @@ inline ERL_NIF_TERM raise_runtime_error(ErlNifEnv* env, std::string_view message
 {
     return raise_error_with_message(env, "Elixir.RuntimeError", message);
 }
+
+// Converts the exception being handled into the NIF's result; call it from a catch block.
+inline ERL_NIF_TERM from_current_exception(ErlNifEnv* env)
+{
+    try
+    {
+        throw;
+    }
+    catch (const std::invalid_argument& e)
+    {
+        return raise_argument_error(env, e.what());
+    }
+    catch (const erl_error_base& e)
+    {
+        return e.get_term(env);
+    }
+    catch (const std::exception& e)
+    {
+        return raise_runtime_error(env, e.what());
+    }
+    catch (...)
+    {
+        return raise_runtime_error(env, "unknown exception");
+    }
+}
 }  // namespace exceptions
 }  // namespace expp

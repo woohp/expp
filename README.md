@@ -1,6 +1,6 @@
 # expp — Erlang/Elixir NIF Library
 
-Header-only C++23 library for writing native Erlang NIFs. Zero dependencies beyond the Erlang VM headers and a C++23 compiler.
+Header-only C++23 library for writing native Erlang NIFs. Zero dependencies beyond the Erlang VM headers (OTP 26 or later) and a C++23 compiler.
 
 ```cpp
 #include "expp.hpp"
@@ -304,7 +304,9 @@ Types convert automatically between C++ and Erlang/Elixir:
 | `expp::resource<T>`              | reference                 |
 | `expp::term`                     | raw `ERL_NIF_TERM` passthrough |
 
-Nested containers (e.g. `vector<vector<int>>`, `map<string, vector<int>>`) work recursively.
+Nested containers (e.g. `vector<vector<int>>`, `map<string, vector<int>>`) work recursively. Strings, vectors, and maps
+also accept custom allocators, comparators, and hashers (e.g. `std::pmr::vector<std::pmr::string>`,
+`std::map<int, int, std::greater<>>`).
 
 ### `expp::term` — Raw Passthrough
 
@@ -337,7 +339,7 @@ int atom_arguments(atom a)
 }
 ```
 
-Comparison works against `std::string_view` and other `atom` values.
+Comparison works against `std::string_view` and other `atom` values. Atom names are UTF-8.
 
 ---
 

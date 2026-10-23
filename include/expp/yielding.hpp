@@ -149,7 +149,9 @@ struct yielding_resource_base
     int dirty_flags = 0;
 
     virtual ~yielding_resource_base() = default;
-    virtual ERL_NIF_TERM step(ErlNifEnv* env) = 0;
+    // Returns the NIF result, or nullopt if the coroutine suspended. Not a 0 sentinel,
+    // since a raised exception's term (THE_NON_VALUE) can be 0.
+    virtual std::optional<ERL_NIF_TERM> step(ErlNifEnv* env) = 0;
     virtual bool is_exhausted() = 0;
 };
 
@@ -164,7 +166,7 @@ struct yielding_resource_impl : yielding_resource_base
         coro(std::move(c))
     {}
 
-    ERL_NIF_TERM step(ErlNifEnv* env) override
+    std::optional<ERL_NIF_TERM> step(ErlNifEnv* env) override
     {
         try
         {
@@ -174,21 +176,17 @@ struct yielding_resource_impl : yielding_resource_base
                 ++(*it);
 
             if (*it == coro.end())
-                return 0;
+                return std::nullopt;
 
             const auto& out = **it;
             if (out)
                 return type_cast<std::decay_t<decltype(*out)>>::to_term(env, *out);
             else
-                return 0;
+                return std::nullopt;
         }
-        catch (const erl_error_base& e)
+        catch (...)
         {
-            return e.get_term(env);
-        }
-        catch (const std::exception& e)
-        {
-            return exceptions::raise_runtime_error(env, e.what());
+            return exceptions::from_current_exception(env);
         }
     }
 
