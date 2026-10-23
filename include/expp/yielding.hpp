@@ -6,6 +6,7 @@
 #include "resource.hpp"
 #include <chrono>
 #include <memory>
+#include <span>
 #include <type_traits>
 
 
@@ -38,12 +39,20 @@ struct is_resource_impl : std::false_type
 template <typename T>
 struct is_resource_impl<resource<T>> : std::true_type
 {};
+
+template <typename T>
+struct is_span_impl : std::false_type
+{};
+
+template <typename T, std::size_t N>
+struct is_span_impl<std::span<T, N>> : std::true_type
+{};
 }  // namespace detail
 
 
 // consteval check: true if T owns its data and is safe to persist
 // across a yielding NIF suspension. The default is false (fail-closed);
-// only known-safe types (scalars, fully-owned containers of scalars,
+// only known-safe types (non-pointer scalars, fully-owned containers of them,
 // and user types with is_yield_persistent<T> = true_type) pass.
 // Containers are decomposed generically via tuple_size, variant_size,
 // and value_type rather than enumerating every template.
@@ -58,6 +67,10 @@ consteval bool is_yield_safe()
 
     // resource<T> is tied to a specific NIF call environment
     if constexpr (detail::is_resource_impl<U>::value)
+        return false;
+
+    // Pointers and spans refer to memory they don't own, which may not outlive a suspension
+    if constexpr (std::is_pointer_v<U> || detail::is_span_impl<U>::value)
         return false;
 
     // Container/result-like types with value_type (vector, optional, array, map,
@@ -89,7 +102,7 @@ consteval bool is_yield_safe()
         }(std::make_index_sequence<std::variant_size_v<U>>());
     }
 
-    // Scalars (int, float, bool, enums, pointers) are always owned by value
+    // Remaining scalars (int, float, bool, enums) are always owned by value
     // and safe to persist across suspension.
     if constexpr (std::is_scalar_v<U>)
         return true;
