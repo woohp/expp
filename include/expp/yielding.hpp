@@ -24,7 +24,7 @@ template <typename T>
 consteval bool is_yield_safe();
 
 
-template <gleam::detail::fixed_string Tag, typename... Args>
+template <detail::fixed_string Tag, typename... Args>
 struct is_yield_persistent<gleam::case_<Tag, Args...>> : std::bool_constant<(is_yield_safe<Args>() && ...)>
 {};
 

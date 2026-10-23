@@ -121,7 +121,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         if constexpr (std::is_void_v<return_type>)
         {
             func_traits::template apply<fn>(env, argv);
-            return enif_make_atom(env, "ok");
+            return detail::static_atom<"ok">(env);
         }
         else if constexpr (is_yielding_v<return_type>)
         {

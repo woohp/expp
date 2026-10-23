@@ -25,7 +25,7 @@ struct erl_error : erl_error_base
     ERL_NIF_TERM get_term(ErlNifEnv* env) const
     {
         return enif_make_tuple2(
-            env, enif_make_atom(env, "error"), type_cast<std::decay_t<T>>::to_term(env, error_value));
+            env, detail::static_atom<"error">(env), type_cast<std::decay_t<T>>::to_term(env, error_value));
     }
 };
 
@@ -35,11 +35,13 @@ namespace exceptions
 inline ERL_NIF_TERM raise_error_with_message(ErlNifEnv* env, const char* module_name, std::string_view message)
 {
     ERL_NIF_TERM keys[3] = {
-        enif_make_atom(env, "__struct__"), enif_make_atom(env, "__exception__"), enif_make_atom(env, "message")
+        detail::static_atom<"__struct__">(env),
+        detail::static_atom<"__exception__">(env),
+        detail::static_atom<"message">(env),
     };
     ERL_NIF_TERM values[3] = {
         enif_make_atom(env, module_name),
-        enif_make_atom(env, "true"),
+        detail::static_atom<"true">(env),
         type_cast<std::string_view>::to_term(env, message)
     };
 

@@ -19,6 +19,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
@@ -294,6 +295,45 @@ struct type_cast;
 
 namespace expp
 {
+namespace detail
+{
+// Allows string literals to be used as non-type template parameters,
+// e.g. `static_atom<"ok">(env)` or `gleam::make_case<"some_tag">(...)`.
+template <std::size_t N>
+struct fixed_string
+{
+    char value[N];
+
+    consteval fixed_string(const char (&str)[N])
+    {
+        std::copy_n(str, N, value);
+    }
+
+    constexpr std::string_view view() const
+    {
+        return {value, N - 1};
+    }
+};
+
+
+// Atoms live in the VM-wide atom table and are never garbage collected, so
+// their terms are valid in every env and can be created once and reused.
+template <fixed_string Name>
+ERL_NIF_TERM static_atom(ErlNifEnv* env)
+{
+    static const ERL_NIF_TERM atom = enif_make_atom_len(env, Name.value, Name.view().size());
+    return atom;
+}
+
+
+template <fixed_string Name>
+bool is_atom(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    return enif_is_identical(term, static_atom<Name>(env));
+}
+}  // namespace detail
+
+
 struct atom
 {
 private:
@@ -578,15 +618,6 @@ inline std::string format_term(ERL_NIF_TERM term)
 }
 
 
-namespace detail
-{
-inline bool is_atom(ErlNifEnv* env, ERL_NIF_TERM term, const char* name)
-{
-    return enif_is_identical(term, enif_make_atom(env, name));
-}
-}  // namespace detail
-
-
 template <std::integral T>
 struct type_cast<T>
 {
@@ -736,21 +767,19 @@ struct type_cast<bool>
 {
     static bool from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        if (detail::is_atom(env, term, "true"))
+        if (detail::is_atom<"true">(env, term))
             return true;
-        if (detail::is_atom(env, term, "false"))
+        if (detail::is_atom<"false">(env, term))
             return false;
         throw std::invalid_argument("expected a boolean (true/false), got: " + format_term(term));
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, bool b) noexcept
     {
-        // enif_make_atom is internally interned by the VM, so calling it each
-        // time is cheap and avoids caching ERL_NIF_TERMs across environments.
         if (b)
-            return enif_make_atom(env, "true");
+            return detail::static_atom<"true">(env);
         else
-            return enif_make_atom(env, "false");
+            return detail::static_atom<"false">(env);
     }
 };
 
@@ -870,9 +899,9 @@ public:
         if (!enif_get_tuple(env, term, &arity, &tuple) || arity != 2)
             throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
 
-        if (detail::is_atom(env, tuple[0], "ok"))
+        if (detail::is_atom<"ok">(env, tuple[0]))
             return type_cast<T>::from_term(env, tuple[1]);
-        if (detail::is_atom(env, tuple[0], "error"))
+        if (detail::is_atom<"error">(env, tuple[0]))
             return std::unexpected(type_cast<E>::from_term(env, tuple[1]));
 
         throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
@@ -881,9 +910,9 @@ public:
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const expected_type& result)
     {
         if (result.has_value())
-            return enif_make_tuple2(env, enif_make_atom(env, "ok"), type_cast<T>::to_term(env, *result));
+            return enif_make_tuple2(env, detail::static_atom<"ok">(env), type_cast<T>::to_term(env, *result));
         else
-            return enif_make_tuple2(env, enif_make_atom(env, "error"), type_cast<E>::to_term(env, result.error()));
+            return enif_make_tuple2(env, detail::static_atom<"error">(env), type_cast<E>::to_term(env, result.error()));
     };
 };
 
@@ -895,7 +924,7 @@ struct type_cast<std::optional<T>>
     {
         static_assert(!std::is_same_v<T, atom>, "std::optional cannot wrap an atom");
 
-        if (detail::is_atom(env, term, "nil"))
+        if (detail::is_atom<"nil">(env, term))
             return std::nullopt;
         return type_cast<T>::from_term(env, term);
     }
@@ -905,7 +934,7 @@ struct type_cast<std::optional<T>>
         if (item)
             return type_cast<T>::to_term(env, *item);
         else
-            return enif_make_atom(env, "nil");
+            return detail::static_atom<"nil">(env);
     }
 };
 
@@ -952,7 +981,7 @@ struct erl_error : erl_error_base
     ERL_NIF_TERM get_term(ErlNifEnv* env) const
     {
         return enif_make_tuple2(
-            env, enif_make_atom(env, "error"), type_cast<std::decay_t<T>>::to_term(env, error_value));
+            env, detail::static_atom<"error">(env), type_cast<std::decay_t<T>>::to_term(env, error_value));
     }
 };
 
@@ -962,11 +991,13 @@ namespace exceptions
 inline ERL_NIF_TERM raise_error_with_message(ErlNifEnv* env, const char* module_name, std::string_view message)
 {
     ERL_NIF_TERM keys[3] = {
-        enif_make_atom(env, "__struct__"), enif_make_atom(env, "__exception__"), enif_make_atom(env, "message")
+        detail::static_atom<"__struct__">(env),
+        detail::static_atom<"__exception__">(env),
+        detail::static_atom<"message">(env),
     };
     ERL_NIF_TERM values[3] = {
         enif_make_atom(env, module_name),
-        enif_make_atom(env, "true"),
+        detail::static_atom<"true">(env),
         type_cast<std::string_view>::to_term(env, message)
     };
 
@@ -1269,28 +1300,6 @@ struct type_cast<std::unordered_multimap<K, V, Hash, Eq, Alloc>>
 
 namespace expp::gleam
 {
-namespace detail
-{
-// Allows string literals to be used as non-type template parameters.
-// This lets APIs spell Gleam constructor tags at the type level, e.g.
-// `gleam::make_case<"some_tag">(...)`.
-template <std::size_t N>
-struct fixed_string
-{
-    char value[N];
-
-    consteval fixed_string(const char (&str)[N])
-    {
-        std::copy_n(str, N, value);
-    }
-
-    constexpr std::string_view view() const
-    {
-        return {value, N - 1};
-    }
-};
-}  // namespace detail
-
 // Gleam's `Option(T)` term shape: `none | {some, value}`.
 // This intentionally differs from `std::optional<T>`, which expp keeps as
 // the existing BEAM/Elixir-friendly `nil | value` representation.
@@ -1377,7 +1386,7 @@ struct type_cast<gleam::option<T>>
 {
     static gleam::option<T> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        if (detail::is_atom(env, term, "none"))
+        if (detail::is_atom<"none">(env, term))
             return std::nullopt;
 
         const ERL_NIF_TERM* tuple = nullptr;
@@ -1385,7 +1394,7 @@ struct type_cast<gleam::option<T>>
         if (!enif_get_tuple(env, term, &arity, &tuple) || arity != 2)
             throw std::invalid_argument("expected Gleam Option none or {some, value}, got: " + format_term(term));
 
-        if (!detail::is_atom(env, tuple[0], "some"))
+        if (!detail::is_atom<"some">(env, tuple[0]))
             throw std::invalid_argument("expected Gleam Option {some, value}, got: " + format_term(term));
 
         return gleam::option<T>{type_cast<T>::from_term(env, tuple[1])};
@@ -1394,15 +1403,15 @@ struct type_cast<gleam::option<T>>
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const gleam::option<T>& item)
     {
         if (!item.value)
-            return enif_make_atom(env, "none");
-        return enif_make_tuple2(env, enif_make_atom(env, "some"), type_cast<T>::to_term(env, *item.value));
+            return detail::static_atom<"none">(env);
+        return enif_make_tuple2(env, detail::static_atom<"some">(env), type_cast<T>::to_term(env, *item.value));
     }
 };
 
 // Converts a Gleam constructor case to its BEAM tuple representation. Decoding
 // is intentionally not implemented yet; use `expp::term` or a custom
 // `type_cast` specialization if a NIF needs to accept arbitrary Gleam ADTs.
-template <gleam::detail::fixed_string Tag, typename... Args>
+template <detail::fixed_string Tag, typename... Args>
 struct type_cast<gleam::case_<Tag, Args...>>
 {
 private:
@@ -1414,7 +1423,7 @@ private:
         return enif_make_tuple(
             env,
             sizeof...(Args) + 1,
-            enif_make_atom_len(env, Tag.value, Tag.view().size()),
+            detail::static_atom<Tag>(env),
             type_cast<std::tuple_element_t<I, std::tuple<Args...>>>::to_term(env, std::get<I>(item.values))...);
     }
 
@@ -1444,7 +1453,7 @@ template <typename T>
 consteval bool is_yield_safe();
 
 
-template <gleam::detail::fixed_string Tag, typename... Args>
+template <detail::fixed_string Tag, typename... Args>
 struct is_yield_persistent<gleam::case_<Tag, Args...>> : std::bool_constant<(is_yield_safe<Args>() && ...)>
 {};
 
@@ -1731,7 +1740,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
         if constexpr (std::is_void_v<return_type>)
         {
             func_traits::template apply<fn>(env, argv);
-            return enif_make_atom(env, "ok");
+            return detail::static_atom<"ok">(env);
         }
         else if constexpr (is_yielding_v<return_type>)
         {
