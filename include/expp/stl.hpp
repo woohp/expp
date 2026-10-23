@@ -14,6 +14,12 @@ concept InnerType = (std::is_move_constructible_v<T> || std::is_copy_constructib
                     (type_castable<T> || std::is_same_v<T, std::byte>);
 
 
+// Vectors of these encode as binaries. bool is a 1-byte integral type too, but encodes as true/false.
+template <typename T>
+inline constexpr bool is_byte_v =
+    (std::is_integral_v<T> && sizeof(T) == 1 && !std::is_same_v<T, bool>) || std::is_same_v<T, std::byte>;
+
+
 template <class F>
 class scope_exit
 {
@@ -48,7 +54,7 @@ private:
 public:
     constexpr static vector_type from_term(ErlNifEnv* env, const ERL_NIF_TERM term)
     {
-        if constexpr ((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
+        if constexpr (is_byte_v<T>)
         {
             ErlNifBinary binary_info;
             if (!enif_inspect_binary(env, term, &binary_info))
@@ -80,7 +86,7 @@ public:
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const vector_type& items)
     {
-        if constexpr ((std::is_integral_v<T> && sizeof(T) == 1) || std::is_same_v<T, std::byte>)
+        if constexpr (is_byte_v<T>)
         {
             ErlNifBinary binary_info;
             if (!enif_alloc_binary(items.size(), &binary_info))

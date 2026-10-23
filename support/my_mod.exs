@@ -6,6 +6,7 @@ defmodule MyMod do
   use Expp, path: "./expp"
 
   def vector_times_int(_v, _i), do: :erlang.nif_error(:not_loaded)
+  def bool_vector_negate(_v), do: :erlang.nif_error(:not_loaded)
   def vector_char_plus_one(_v), do: :erlang.nif_error(:not_loaded)
   def vector_int8_plus_one(_v), do: :erlang.nif_error(:not_loaded)
   def times2(_m), do: :erlang.nif_error(:not_loaded)
