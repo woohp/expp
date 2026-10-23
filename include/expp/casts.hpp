@@ -388,7 +388,10 @@ struct type_cast<resource<T>>
 {
     static resource<T> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        return resource<T>{env, term};
+        void* objp;
+        if (!enif_get_resource(env, term, resource<T>::resource_type, &objp))
+            throw std::invalid_argument("expected a resource of the declared type, got: " + format_term(term));
+        return resource<T>{objp, false};
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const resource<T>& res)

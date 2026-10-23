@@ -516,6 +516,21 @@ defmodule MyModTest do
       assert MyMod.use_resource(res3) == 30
     end
 
+    test "decoded resource can be returned without being accessed" do
+      res = MyMod.resource_identity(MyMod.make_resource(7))
+      assert MyMod.use_resource(res) == 7
+    end
+
+    test "throwing constructor does not run the destructor" do
+      assert MyMod.make_throwing_resource() == 0
+    end
+
+    test "uninitialized resource type raises RuntimeError" do
+      assert_raise RuntimeError, ~r/resource type not initialized/, fn ->
+        MyMod.make_uninitialized_resource()
+      end
+    end
+
     test "invalid resource reference raises ArgumentError" do
       assert_raise ArgumentError, fn ->
         MyMod.use_resource(:not_a_resource)

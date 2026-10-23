@@ -286,6 +286,54 @@ int use_resource(resource<MyResource> res)
 }
 
 
+resource<MyResource> resource_identity(resource<MyResource> res)
+{
+    return res;
+}
+
+
+int throwing_resource_destructions = 0;
+
+
+struct ThrowingResource
+{
+    ThrowingResource(int)
+    {
+        throw std::runtime_error("constructor failed");
+    }
+
+    ~ThrowingResource()
+    {
+        throwing_resource_destructions++;
+    }
+};
+
+
+// Returns how often ~ThrowingResource ran, which must be 0 since construction never succeeds.
+int make_throwing_resource()
+{
+    try
+    {
+        resource<ThrowingResource>::alloc(1);
+    }
+    catch (const std::runtime_error&)
+    {}
+    return throwing_resource_destructions;
+}
+
+
+struct UninitializedResource
+{
+    int value;
+};
+
+
+resource<UninitializedResource> make_uninitialized_resource()
+{
+    return resource<UninitializedResource>::alloc(1);
+}
+
+
 int throw_error(int i)
 {
     if (i == 0)
@@ -504,6 +552,7 @@ int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 {
     yielding_resource_t::init(env, "yielding_generator");
     resource<MyResource>::init(env, "MyResource");
+    resource<ThrowingResource>::init(env, "ThrowingResource");
     return 0;
 }
 
@@ -547,6 +596,9 @@ MODULE(
     def(make_resource, DirtyFlags::NotDirty),
     def(make_resource_incremented, DirtyFlags::NotDirty),
     def(use_resource, DirtyFlags::NotDirty),
+    def(resource_identity, DirtyFlags::NotDirty),
+    def(make_throwing_resource, DirtyFlags::NotDirty),
+    def(make_uninitialized_resource, DirtyFlags::NotDirty),
     def(throw_error, DirtyFlags::NotDirty),
     def(dirty_cpu_test, DirtyFlags::DirtyCpu),
     def(binary_identity, DirtyFlags::NotDirty),

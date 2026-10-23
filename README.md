@@ -422,6 +422,9 @@ int read_counter(resource<Counter> c)
 }
 ```
 
+`alloc(args...)` constructs `T(args...)` with parentheses, like `std::make_unique`, so aggregates work and
+`alloc(3, 0)` for a `std::vector<int>` makes three zeros.
+
 ---
 
 ## Coroutines (Yielding NIFs)
