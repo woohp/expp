@@ -202,12 +202,13 @@ int guarded_callback(Args... args) noexcept
 
 
 // Wraps a load or upgrade callback so an exception (e.g. from resource<T>::init) fails
-// the load instead of escaping into the VM. nullptr stays nullptr, since a null upgrade
-// callback tells the VM that upgrades are unsupported.
+// the load instead of escaping into the VM. A null callback (nullptr, NULL, or a null
+// function pointer) stays null, since a null upgrade callback tells the VM that upgrades
+// are unsupported.
 template <auto callback>
 consteval auto guard()
 {
-    if constexpr (std::is_null_pointer_v<decltype(callback)>)
+    if constexpr (callback == decltype(callback){})
         return nullptr;
     else
         return []<typename... Args>(int (*)(Args...)) { return &guarded_callback<callback, Args...>; }(callback);
