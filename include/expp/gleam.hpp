@@ -1,6 +1,5 @@
 #pragma once
 #include "casts.hpp"
-#include <algorithm>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -10,28 +9,6 @@
 
 namespace expp::gleam
 {
-namespace detail
-{
-// Allows string literals to be used as non-type template parameters.
-// This lets APIs spell Gleam constructor tags at the type level, e.g.
-// `gleam::make_case<"some_tag">(...)`.
-template <std::size_t N>
-struct fixed_string
-{
-    char value[N];
-
-    consteval fixed_string(const char (&str)[N])
-    {
-        std::copy_n(str, N, value);
-    }
-
-    constexpr std::string_view view() const
-    {
-        return {value, N - 1};
-    }
-};
-}  // namespace detail
-
 // Gleam's `Option(T)` term shape: `none | {some, value}`.
 // This intentionally differs from `std::optional<T>`, which expp keeps as
 // the existing BEAM/Elixir-friendly `nil | value` representation.
@@ -118,7 +95,7 @@ struct type_cast<gleam::option<T>>
 {
     static gleam::option<T> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        if (detail::is_atom(env, term, "none"))
+        if (detail::is_atom<"none">(env, term))
             return std::nullopt;
 
         const ERL_NIF_TERM* tuple = nullptr;
@@ -126,7 +103,7 @@ struct type_cast<gleam::option<T>>
         if (!enif_get_tuple(env, term, &arity, &tuple) || arity != 2)
             throw std::invalid_argument("expected Gleam Option none or {some, value}, got: " + format_term(term));
 
-        if (!detail::is_atom(env, tuple[0], "some"))
+        if (!detail::is_atom<"some">(env, tuple[0]))
             throw std::invalid_argument("expected Gleam Option {some, value}, got: " + format_term(term));
 
         return gleam::option<T>{type_cast<T>::from_term(env, tuple[1])};
@@ -135,15 +112,15 @@ struct type_cast<gleam::option<T>>
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const gleam::option<T>& item)
     {
         if (!item.value)
-            return enif_make_atom(env, "none");
-        return enif_make_tuple2(env, enif_make_atom(env, "some"), type_cast<T>::to_term(env, *item.value));
+            return detail::static_atom<"none">(env);
+        return enif_make_tuple2(env, detail::static_atom<"some">(env), type_cast<T>::to_term(env, *item.value));
     }
 };
 
 // Converts a Gleam constructor case to its BEAM tuple representation. Decoding
 // is intentionally not implemented yet; use `expp::term` or a custom
 // `type_cast` specialization if a NIF needs to accept arbitrary Gleam ADTs.
-template <gleam::detail::fixed_string Tag, typename... Args>
+template <detail::fixed_string Tag, typename... Args>
 struct type_cast<gleam::case_<Tag, Args...>>
 {
 private:
@@ -155,7 +132,7 @@ private:
         return enif_make_tuple(
             env,
             sizeof...(Args) + 1,
-            enif_make_atom_len(env, Tag.value, Tag.view().size()),
+            detail::static_atom<Tag>(env),
             type_cast<std::tuple_element_t<I, std::tuple<Args...>>>::to_term(env, std::get<I>(item.values))...);
     }
 

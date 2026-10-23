@@ -62,15 +62,6 @@ inline std::string format_term(ERL_NIF_TERM term)
 }
 
 
-namespace detail
-{
-inline bool is_atom(ErlNifEnv* env, ERL_NIF_TERM term, const char* name)
-{
-    return enif_is_identical(term, enif_make_atom(env, name));
-}
-}  // namespace detail
-
-
 template <std::integral T>
 struct type_cast<T>
 {
@@ -220,21 +211,19 @@ struct type_cast<bool>
 {
     static bool from_term(ErlNifEnv* env, ERL_NIF_TERM term)
     {
-        if (detail::is_atom(env, term, "true"))
+        if (detail::is_atom<"true">(env, term))
             return true;
-        if (detail::is_atom(env, term, "false"))
+        if (detail::is_atom<"false">(env, term))
             return false;
         throw std::invalid_argument("expected a boolean (true/false), got: " + format_term(term));
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, bool b) noexcept
     {
-        // enif_make_atom is internally interned by the VM, so calling it each
-        // time is cheap and avoids caching ERL_NIF_TERMs across environments.
         if (b)
-            return enif_make_atom(env, "true");
+            return detail::static_atom<"true">(env);
         else
-            return enif_make_atom(env, "false");
+            return detail::static_atom<"false">(env);
     }
 };
 
@@ -354,9 +343,9 @@ public:
         if (!enif_get_tuple(env, term, &arity, &tuple) || arity != 2)
             throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
 
-        if (detail::is_atom(env, tuple[0], "ok"))
+        if (detail::is_atom<"ok">(env, tuple[0]))
             return type_cast<T>::from_term(env, tuple[1]);
-        if (detail::is_atom(env, tuple[0], "error"))
+        if (detail::is_atom<"error">(env, tuple[0]))
             return std::unexpected(type_cast<E>::from_term(env, tuple[1]));
 
         throw std::invalid_argument("expected {ok, value} or {error, reason}, got: " + format_term(term));
@@ -365,9 +354,9 @@ public:
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const expected_type& result)
     {
         if (result.has_value())
-            return enif_make_tuple2(env, enif_make_atom(env, "ok"), type_cast<T>::to_term(env, *result));
+            return enif_make_tuple2(env, detail::static_atom<"ok">(env), type_cast<T>::to_term(env, *result));
         else
-            return enif_make_tuple2(env, enif_make_atom(env, "error"), type_cast<E>::to_term(env, result.error()));
+            return enif_make_tuple2(env, detail::static_atom<"error">(env), type_cast<E>::to_term(env, result.error()));
     };
 };
 
@@ -379,7 +368,7 @@ struct type_cast<std::optional<T>>
     {
         static_assert(!std::is_same_v<T, atom>, "std::optional cannot wrap an atom");
 
-        if (detail::is_atom(env, term, "nil"))
+        if (detail::is_atom<"nil">(env, term))
             return std::nullopt;
         return type_cast<T>::from_term(env, term);
     }
@@ -389,7 +378,7 @@ struct type_cast<std::optional<T>>
         if (item)
             return type_cast<T>::to_term(env, *item);
         else
-            return enif_make_atom(env, "nil");
+            return detail::static_atom<"nil">(env);
     }
 };
 
