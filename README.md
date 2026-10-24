@@ -1,6 +1,6 @@
 # expp — Erlang/Elixir NIF Library
 
-Header-only C++23 library for writing native Erlang NIFs. Zero dependencies beyond the Erlang VM headers (OTP 26 or later) and a C++23 compiler.
+Header-only C++23 library for writing native Erlang NIFs. Zero dependencies beyond the Erlang VM headers (OTP 26 or later) and a C++23 compiler. Supports Linux and macOS; Windows is not supported.
 
 ```cpp
 #include "expp.hpp"

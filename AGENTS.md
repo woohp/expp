@@ -40,6 +40,7 @@ gleam check
 ## C++ Guidelines
 
 - Use C++23.
+- Linux and macOS only. Windows/MSVC is permanently out of scope; don't add workarounds or design around it.
 - Prefer modern standard types: `std::optional`, `std::expected`, `std::variant`, `std::tuple`, `std::vector`.
 - Preserve existing style; NIF/example function names are mostly `snake_case`.
 - Keep standard/library includes first, then local headers.
