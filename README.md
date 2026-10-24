@@ -353,7 +353,7 @@ Use `def(fn, flags)` or `def(fn, "elixir_name", flags)` inside the `MODULE(...)`
 ```cpp
 MODULE(
     Elixir.MyMod,
-    load,                          // optional load callback
+    nullptr,                       // load callback (or nullptr)
     nullptr,                       // upgrade callback (or nullptr)
     nullptr,                       // unload callback (or nullptr)
     def(add, DirtyFlags::NotDirty),
@@ -364,18 +364,11 @@ MODULE(
 
 By default the NIF is named after the C++ function. Pass a string as the second argument to override (`def(fn, "elixir_name", ...)`).
 
-The `load` function initialises resource types. If you use coroutines, `yielding_resource_t` must also be initialised here:
+Resource types need no setup: `MODULE` opens them before calling your `load` callback, and takes over the old
+library's resources before calling your `upgrade` callback. A null upgrade callback means the library can't be upgraded
+in place, as with plain `ERL_NIF_INIT`.
 
-```cpp
-int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
-{
-    resource<MyResource>::init(env, "MyResource");
-    yielding_resource_t::init(env, "yielding_generator");
-    return 0;
-}
-```
-
-If `load` or `upgrade` throws (for example, when `init` fails), the message is printed to stderr and `:erlang.load_nif/2`
+If `load` or `upgrade` throws, or a resource type fails to open, the message is printed to stderr and `:erlang.load_nif/2`
 returns an error instead of the VM crashing.
 
 ---
@@ -453,6 +446,8 @@ int read_counter(resource<Counter> c)
     return c->value;
 }
 ```
+
+Every type passed to `resource<T>::alloc` is registered automatically; there is no load-time setup.
 
 `resource<T>` is reference-counted like `std::shared_ptr`, sharing the VM's count: every handle, including one decoded
 from an argument, keeps the resource alive, so handles can be copied, stored in other objects (including other
