@@ -301,6 +301,7 @@ Types convert automatically between C++ and Erlang/Elixir:
 | `std::variant<T...>`             | value of whichever variant matches |
 | `std::vector<std::byte>` / `std::vector<int8_t>` / `std::vector<char>` | binary |
 | `expp::resource<T>`              | reference                 |
+| `expp::resource_binary<T>`       | binary viewing a resource's bytes (return only) |
 | `ErlNifPid`                      | local pid                 |
 | `expp::term`                     | raw `ERL_NIF_TERM` passthrough |
 
@@ -452,6 +453,18 @@ incomplete where a handle is only declared, so a type can hold handles to its ow
 Two caveats, as with `std::shared_ptr`: the reference count is thread-safe but access to `T` is not, including handles
 stored in `T` (reassigning one is a write), so guard shared mutable state yourself; and a cycle of handles is never
 freed, so back-pointers (e.g. child to parent) must not be `resource<T>` handles.
+
+To return bytes a resource owns without copying them, return a `resource_binary`. The binary keeps the resource alive,
+and the bytes must not change while it lives:
+
+```cpp
+struct Buffer { std::string bytes; };
+
+resource_binary<Buffer> buffer_contents(resource<Buffer> buf)
+{
+    return resource_binary{buf, buf->bytes.data(), buf->bytes.size()};
+}
+```
 
 `alloc(args...)` constructs `T(args...)` with parentheses, like `std::make_unique`, so aggregates work and
 `alloc(3, 0)` for a `std::vector<int>` makes three zeros.

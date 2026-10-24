@@ -362,6 +362,42 @@ int node_live()
 }
 
 
+std::atomic<int> buffer_live_count = 0;
+
+
+struct Buffer
+{
+    string bytes;
+
+    explicit Buffer(string bytes) :
+        bytes(std::move(bytes))
+    {
+        buffer_live_count++;
+    }
+
+    ~Buffer()
+    {
+        buffer_live_count--;
+    }
+};
+
+
+// The returned binary alone keeps the buffer alive.
+resource_binary<Buffer> buffer_tail(string bytes, size_t offset)
+{
+    if (offset > bytes.size())
+        throw std::invalid_argument("offset out of range");
+    auto buf = resource<Buffer>::alloc(std::move(bytes));
+    return resource_binary{buf, buf->bytes.data() + offset, buf->bytes.size() - offset};
+}
+
+
+int buffer_live()
+{
+    return buffer_live_count;
+}
+
+
 // Never defined: handles to an opaque type can still be copied, moved, assigned, released,
 // and encoded. Compile-only.
 struct Opaque;
@@ -712,6 +748,8 @@ MODULE(
     def(set_first_child, DirtyFlags::NotDirty),
     def(yield_node_value, DirtyFlags::NotDirty),
     def(node_live, DirtyFlags::NotDirty),
+    def(buffer_tail, DirtyFlags::NotDirty),
+    def(buffer_live, DirtyFlags::NotDirty),
     def(make_throwing_resource, DirtyFlags::NotDirty),
     def(loaded_value, DirtyFlags::NotDirty),
     def(throw_error, DirtyFlags::NotDirty),

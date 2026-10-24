@@ -412,4 +412,14 @@ struct type_cast<resource<T>>
         return enif_make_resource(env, res.objp);
     }
 };
+
+
+template <typename T>
+struct type_cast<resource_binary<T>>
+{
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const resource_binary<T>& b) noexcept
+    {
+        return enif_make_resource_binary(env, b.owner.objp, b.data, b.size);
+    }
+};
 }  // namespace expp

@@ -591,6 +591,24 @@ defmodule MyModTest do
       assert wait_until(fn -> MyMod.node_live() == 0 end)
     end
 
+    test "resource binaries view the resource's bytes and keep it alive" do
+      parent = self()
+
+      {pid, ref} =
+        spawn_monitor(fn ->
+          bin = MyMod.buffer_tail("hello world", 6)
+          :erlang.garbage_collect()
+          send(parent, {:held, :binary.copy(bin), MyMod.buffer_live()})
+        end)
+
+      assert_receive {:held, "world", 1}
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+      assert wait_until(fn -> MyMod.buffer_live() == 0 end)
+
+      assert MyMod.buffer_tail("abc", 3) == ""
+      assert_raise ArgumentError, fn -> MyMod.buffer_tail("abc", 4) end
+    end
+
     test "throwing constructor does not run the destructor" do
       assert MyMod.make_throwing_resource() == 0
     end
