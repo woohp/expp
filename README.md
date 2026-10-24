@@ -110,19 +110,27 @@ mix run -e "IO.puts(MyNif.add(2, 3))"
 
 The shared library is compiled to `priv/my_nif.so` during `mix compile` and loaded at runtime by `Expp`. The caller provides the complete path; `Application.app_dir/2` keeps it independent of the current working directory and compatible with releases.
 
-> **Symbol visibility.** The `-fvisibility=hidden` flag prevents symbol clashes when multiple NIF libraries use expp in the same VM. Without it, loading two such libraries will fail.
+> **Symbol visibility.** expp hides its own per-library state, so several NIF libraries using expp can share a VM
+> without extra flags. `-fvisibility=hidden` is still good practice: it keeps your library's other symbols private, so
+> they can't clash with another library's.
 
 ## Gleam Quickstart
 
 expp works with Gleam through a small Erlang loader module. Use an Erlang module name in `MODULE(...)`, not an Elixir module name.
 
-Create a Gleam project, add expp as a dependency, and add the native source:
+Create a Gleam project and the native source directories:
 
 ```sh
 gleam new my_nif
 cd my_nif
-gleam add expp
 mkdir -p c_src priv
+```
+
+expp isn't on Hex, so add it to `gleam.toml` as a git dependency:
+
+```toml
+[dependencies]
+expp = { git = "https://github.com/woohp/expp.git", ref = "master" }
 ```
 
 Write `c_src/my_nif.cpp`:
@@ -200,7 +208,8 @@ gleam deps download
 make
 ```
 
-If you are using an unpublished local checkout of expp, override the include path:
+Gleam doesn't copy path dependencies (`expp = { path = "../expp" }`) into `build/packages`, so for a local checkout,
+override the include path:
 
 ```sh
 make EXPP_INCLUDE_DIR=/path/to/expp/include

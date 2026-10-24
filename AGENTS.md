@@ -103,7 +103,7 @@ Conversions are BEAM-term based and work across Erlang, Elixir, and Gleam surfac
 - Use `expp::gleam::case_<"tag", ...>` when declaring a `std::variant` that can return multiple Gleam constructors.
 - Do not add permissive bool/int coercions. Gleam `Bool` maps to C++ `bool`, not `int`.
 - Gleam examples should use an Erlang loader module with `code:priv_dir/1` and `@external(erlang, "loader_module", "nif_name")`.
-- Gleam downstream Makefiles can use `EXPP_INCLUDE_DIR ?= build/packages/expp/include` after `gleam add expp`.
+- expp isn't on Hex: Gleam projects add it as a git dependency, which lands in `build/packages/expp`, so downstream Makefiles can use `EXPP_INCLUDE_DIR ?= build/packages/expp/include`. Path dependencies aren't copied there.
 
 ## Elixir Interop
 
