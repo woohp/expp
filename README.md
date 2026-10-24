@@ -74,11 +74,16 @@ Create a `Makefile` that builds the shared library:
 ```makefile
 ERTS_INCLUDE_DIR ?= $(ERL_EI_INCLUDE_DIR)
 
+NIF_LDFLAGS := -shared
+ifeq ($(shell uname -s),Darwin)
+NIF_LDFLAGS += -undefined dynamic_lookup
+endif
+
 priv:
 	@mkdir -p priv
 
 priv/my_nif.so: priv src/my_nif.cpp
-	$(CXX) -I$(ERTS_INCLUDE_DIR) -I$(EXPP_INCLUDE_DIR) -std=c++23 -fvisibility=hidden -shared -undefined dynamic_lookup -o $@ src/my_nif.cpp
+	$(CXX) -I$(ERTS_INCLUDE_DIR) -I$(EXPP_INCLUDE_DIR) -std=c++23 -fPIC -fvisibility=hidden $(NIF_LDFLAGS) -o $@ src/my_nif.cpp
 
 clean:
 	$(RM) priv/my_nif.so
