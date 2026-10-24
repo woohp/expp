@@ -65,9 +65,9 @@ consteval bool is_yield_safe()
     if constexpr (std::same_as<U, std::string_view> || std::same_as<U, binary> || std::same_as<U, term>)
         return false;
 
-    // resource<T> is tied to a specific NIF call environment
+    // resource<T> holds its own reference, so the resource outlives the suspension
     if constexpr (detail::is_resource_impl<U>::value)
-        return false;
+        return true;
 
     // Pointers and spans refer to memory they don't own, which may not outlive a suspension
     if constexpr (std::is_pointer_v<U> || detail::is_span_impl<U>::value)

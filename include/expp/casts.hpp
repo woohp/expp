@@ -391,14 +391,13 @@ struct type_cast<resource<T>>
         void* objp;
         if (!enif_get_resource(env, term, resource<T>::resource_type, &objp))
             throw std::invalid_argument("expected a resource of the declared type, got: " + format_term(term));
-        return resource<T>{objp, false};
+        enif_keep_resource(objp);
+        return resource<T>{objp};
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const resource<T>& res)
     {
-        // Just create the term — the resource<T> destructor will call
-        // enif_release_resource when the object goes out of scope,
-        // leaving the term as the sole owner of the NIF resource.
+        // The term holds its own reference; res still releases its own when destroyed.
         return enif_make_resource(env, res.objp);
     }
 };

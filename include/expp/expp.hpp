@@ -136,7 +136,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             static_assert(
                 func_traits::all_args_yield_safe(),
                 "generator function arguments must be fully owned across suspension; "
-                "string_view, binary, resource, term, and containers wrapping them "
+                "string_view, binary, term, and containers wrapping them "
                 "are not allowed. Specialize expp::is_yield_persistent<T> = std::true_type "
                 "for fully-owned custom decoded types.");
 

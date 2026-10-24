@@ -133,4 +133,4 @@ int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
 ## Coroutines
 
 - Use `yielding<T>` return type and `co_yield`.
-- Generator arguments must be fully owned; no references, borrowed binaries, `std::string_view`, raw terms, or non-persistent resources unless explicitly marked yield-persistent.
+- Generator arguments must be fully owned; no references, borrowed binaries, `std::string_view`, or raw terms. `resource<T>` handles are fine since each holds a reference.
