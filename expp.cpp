@@ -172,6 +172,17 @@ std::expected<int, int> expected_arguments(std::expected<int, int> result)
 }
 
 
+std::expected<void, int> expected_void_negate(std::expected<void, int> result)
+{
+    if (result)
+        return {};
+    return std::unexpected(-result.error());
+}
+
+
+static_assert(is_yield_safe<std::expected<void, string>>());
+
+
 std::expected<int, int> get_expected(int i)
 {
     if (i >= 0)
@@ -745,6 +756,7 @@ MODULE(
     def(gleam_tagged_variant, DirtyFlags::NotDirty),
     def(expected_arguments, DirtyFlags::NotDirty),
     def(get_expected, DirtyFlags::NotDirty),
+    def(expected_void_negate, DirtyFlags::NotDirty),
     def(get_expected_stringview_error, DirtyFlags::NotDirty),
     def(atom_arguments, DirtyFlags::NotDirty),
     def(atom_returns, DirtyFlags::NotDirty),

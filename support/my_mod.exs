@@ -25,6 +25,7 @@ defmodule MyMod do
   def gleam_tagged_variant(_id), do: :erlang.nif_error(:not_loaded)
   def expected_arguments(_result), do: :erlang.nif_error(:not_loaded)
   def get_expected(_i), do: :erlang.nif_error(:not_loaded)
+  def expected_void_negate(_result), do: :erlang.nif_error(:not_loaded)
   def get_expected_stringview_error(_i), do: :erlang.nif_error(:not_loaded)
   def atom_arguments(_a), do: :erlang.nif_error(:not_loaded)
   def atom_returns(_i), do: :erlang.nif_error(:not_loaded)

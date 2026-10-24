@@ -276,6 +276,7 @@ Gleam interop notes:
 | `Option(a)` | `none` / `{some, a}` | `expp::gleam::option<T>` |
 | custom type constructor | tagged tuple | `expp::gleam::make_case<"tag">(...)` / `expp::gleam::case_<"tag", ...>` |
 
+`std::expected<void, E>` encodes success as a bare `ok`, so it doesn't match Gleam's `Ok(Nil)` (`{ok, nil}`).
 `std::optional<T>` intentionally remains the Elixir/Erlang shape `nil | value`; use `expp::gleam::option<T>` for Gleam `Option(T)`. Use `expp::gleam::case_<"tag", ...>` when declaring a C++ `std::variant` that can return multiple Gleam constructors, and `expp::gleam::make_case<"tag">(...)` when constructing a value.
 
 ## Type Conversions
@@ -298,6 +299,7 @@ Types convert automatically between C++ and Erlang/Elixir:
 | `std::tuple<T...>`               | tuple                     |
 | `std::optional<T>`               | value or `nil`            |
 | `std::expected<T,E>`             | `{:ok, value}` or `{:error, err}` |
+| `std::expected<void,E>`          | `:ok` or `{:error, err}`  |
 | `std::variant<T...>`             | value of whichever variant matches |
 | `std::vector<std::byte>` / `std::vector<int8_t>` / `std::vector<char>` | binary |
 | `expp::resource<T>`              | reference                 |
