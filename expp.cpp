@@ -659,18 +659,17 @@ int loaded_value()
 }
 
 
-using upgrade_callback = int (*)(ErlNifEnv*, void**, void**, ERL_NIF_TERM);
-constexpr upgrade_callback null_upgrade = nullptr;
-
-static_assert(expp::detail::on_upgrade<nullptr>() == nullptr);
-static_assert(expp::detail::on_upgrade<NULL>() == nullptr);
-static_assert(expp::detail::on_upgrade<null_upgrade>() == nullptr);
+// Compile-only: LOAD may be any null value.
+using load_callback = int (*)(ErlNifEnv*, void**, ERL_NIF_TERM);
+constexpr load_callback null_load = nullptr;
+[[maybe_unused]] constexpr load_callback null_loads[] = {
+    expp::detail::on_load<nullptr>, expp::detail::on_load<NULL>, expp::detail::on_load<null_load>
+};
 
 
 MODULE(
     Elixir.MyMod,
     load,
-    nullptr,
     nullptr,
     def(vector_times_int, DirtyFlags::NotDirty),
     def(bool_vector_negate, DirtyFlags::NotDirty),

@@ -66,14 +66,13 @@ MODULE(
     Elixir.MyMod,
     nullptr,
     nullptr,
-    nullptr,
     def(add, DirtyFlags::NotDirty))
 ```
 
 For Erlang/Gleam loaders, use a normal Erlang module atom instead of an Elixir module name:
 
 ```cpp
-MODULE(my_nif_ffi, nullptr, nullptr, nullptr, def(add, DirtyFlags::NotDirty))
+MODULE(my_nif_ffi, nullptr, nullptr, def(add, DirtyFlags::NotDirty))
 ```
 
 ## Type Conversion Notes
