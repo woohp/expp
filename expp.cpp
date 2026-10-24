@@ -465,7 +465,7 @@ bool process_alive(ErlNifEnv* env, ErlNifPid pid)
 
 
 // Sends from the NIF's own thread, then from a thread the VM didn't create.
-pair<bool, bool> send_twice(ErlNifEnv* env, ErlNifPid pid, string msg)
+pair<bool, bool> send_twice(ErlNifEnv* env, ErlNifPid pid, term msg)
 {
     const bool from_nif = expp::send(env, pid, pair{"from_nif"_atom, msg});
     bool from_thread = false;

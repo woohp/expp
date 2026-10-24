@@ -1090,15 +1090,20 @@ struct type_cast<ErlNifPid>
 
 
 // Sends msg to a local process, returning false if it isn't alive. Pass the env of the
-// calling NIF, or nullptr when sending from a thread the VM didn't create.
+// calling NIF, or nullptr when sending from a thread the VM didn't create. msg may hold
+// terms from other envs (expp::term, decoded binaries), so the message is always copied:
+// by enif_send when given the caller's env, by enif_make_copy otherwise.
 template <typename T>
 bool send(ErlNifEnv* caller_env, const ErlNifPid& to, const T& msg)
 {
+    if (caller_env)
+        return enif_send(caller_env, &to, nullptr, type_cast<std::decay_t<T>>::to_term(caller_env, msg));
+
     const std::unique_ptr<ErlNifEnv, decltype(&enif_free_env)> msg_env{enif_alloc_env(), enif_free_env};
     if (!msg_env)
         throw std::bad_alloc{};
     const ERL_NIF_TERM term = type_cast<std::decay_t<T>>::to_term(msg_env.get(), msg);
-    return enif_send(caller_env, &to, msg_env.get(), term);
+    return enif_send(nullptr, &to, msg_env.get(), enif_make_copy(msg_env.get(), term));
 }
 }  // namespace expp
 

@@ -247,10 +247,18 @@ defmodule MyModTest do
       assert MyMod.process_alive(self())
     end
 
-    test "send reaches live processes from NIF and non-VM threads" do
-      assert MyMod.send_twice(self(), "hi") == {true, true}
-      assert_received {:from_nif, "hi"}
-      assert_received {:from_thread, "hi"}
+    test "sent messages outlive the sender's heap, from NIF and non-VM threads" do
+      parent = self()
+      # Terms from the sending process's heap: a list, a tuple, a heap binary, and a refc binary
+      msg = [[1, 2], {:x, [3]}, "small", String.duplicate("large", 100)]
+
+      {pid, ref} = spawn_monitor(fn -> send(parent, {:sent, MyMod.send_twice(parent, msg)}) end)
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+      :erlang.garbage_collect()
+
+      assert_received {:sent, {true, true}}
+      assert_received {:from_nif, ^msg}
+      assert_received {:from_thread, ^msg}
     end
 
     test "send returns false for dead processes" do
