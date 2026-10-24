@@ -540,6 +540,25 @@ defmodule MyModTest do
       assert MyMod.use_resource(MyMod.holder_inner(holder)) == 11
     end
 
+    test "resource trees are freed once every native and BEAM owner is gone" do
+      parent = self()
+
+      {pid, ref} =
+        spawn_monitor(fn ->
+          leaf = MyMod.make_node(1, [])
+          root = MyMod.make_node(2, [leaf, MyMod.make_node(3, [])])
+          sum = MyMod.tree_sum(root)
+          :ok = MyMod.set_first_child(root, MyMod.make_node(4, []))
+          error = catch_error(MyMod.yield_node_then_throw(root))
+          held = {sum, MyMod.tree_sum(root), MyMod.tree_sum(leaf), MyMod.node_live(), error}
+          send(parent, {:held, held})
+        end)
+
+      assert_receive {:held, {6, 9, 1, 4, %RuntimeError{message: "boom"}}}
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+      assert wait_until(fn -> MyMod.node_live() == 0 end)
+    end
+
     test "copied handles share the object" do
       assert MyMod.increment_through_copy(MyMod.make_resource(1)) == 2
     end
@@ -604,6 +623,16 @@ defmodule MyModTest do
       map = for i <- 1..size, into: %{}, do: {i, i}
       expected = for i <- 1..size, into: %{}, do: {i, i * i}
       assert MyMod.times2(map) == expected
+    end
+  end
+
+  defp wait_until(fun, attempts \\ 100) do
+    cond do
+      fun.() -> true
+      attempts == 0 -> false
+      true ->
+        Process.sleep(10)
+        wait_until(fun, attempts - 1)
     end
   end
 end
