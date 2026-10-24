@@ -469,6 +469,10 @@ inline binary operator""_binary(const char* s, std::size_t len)
 
 namespace expp
 {
+// A reference-counted handle to a NIF resource, like std::shared_ptr but sharing the
+// VM's count: each handle holds one reference, so handles can be copied, stored in
+// other objects, and kept across calls. T lives in the resource memory, so returning
+// the same object again yields the same Erlang reference.
 template <typename T>
     requires std::destructible<T>
 class resource
@@ -478,37 +482,53 @@ class resource
     using slot = std::optional<T>;
 
     slot* objp;
-    bool owns_;
 
     friend struct type_cast<resource<T>>;
 
-    resource(void* objp, bool owns) :
-        objp(static_cast<slot*>(objp)),
-        owns_(owns)
+    // Adopts a reference the caller already holds.
+    explicit resource(void* objp) :
+        objp(static_cast<slot*>(objp))
     {}
 
 public:
     typedef T type;
 
-    resource(const resource<T>&) = delete;
-
-    resource(resource<T>&& other) :
-        objp(other.objp),
-        owns_(other.owns_)
+    resource(const resource<T>& other) :
+        objp(other.objp)
     {
-        other.objp = nullptr;
-        other.owns_ = false;
+        if (objp)
+            enif_keep_resource(objp);
+    }
+
+    resource(resource<T>&& other) noexcept :
+        objp(std::exchange(other.objp, nullptr))
+    {}
+
+    resource<T>& operator=(resource<T> other) noexcept
+    {
+        std::swap(objp, other.objp);
+        return *this;
     }
 
     ~resource()
     {
-        if (owns_ && objp)
+        if (objp)
             enif_release_resource(objp);
     }
 
-    T& get()
+    T& get() const
     {
         return **objp;
+    }
+
+    T& operator*() const
+    {
+        return get();
+    }
+
+    T* operator->() const
+    {
+        return &get();
     }
 
     template <typename... Args>
@@ -525,7 +545,7 @@ public:
             throw std::bad_alloc{};
 
         // Owning the resource first releases it if the constructor throws.
-        resource<T> res{new (buf) slot, true};
+        resource<T> res{new (buf) slot};
         res.objp->emplace(std::forward<Args>(args)...);
         return res;
     }
@@ -930,14 +950,13 @@ struct type_cast<resource<T>>
         void* objp;
         if (!enif_get_resource(env, term, resource<T>::resource_type, &objp))
             throw std::invalid_argument("expected a resource of the declared type, got: " + format_term(term));
-        return resource<T>{objp, false};
+        enif_keep_resource(objp);
+        return resource<T>{objp};
     }
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const resource<T>& res)
     {
-        // Just create the term — the resource<T> destructor will call
-        // enif_release_resource when the object goes out of scope,
-        // leaving the term as the sole owner of the NIF resource.
+        // The term holds its own reference; res still releases its own when destroyed.
         return enif_make_resource(env, res.objp);
     }
 };
@@ -1494,9 +1513,9 @@ consteval bool is_yield_safe()
     if constexpr (std::same_as<U, std::string_view> || std::same_as<U, binary> || std::same_as<U, term>)
         return false;
 
-    // resource<T> is tied to a specific NIF call environment
+    // resource<T> holds its own reference, so the resource outlives the suspension
     if constexpr (detail::is_resource_impl<U>::value)
-        return false;
+        return true;
 
     // Pointers and spans refer to memory they don't own, which may not outlive a suspension
     if constexpr (std::is_pointer_v<U> || detail::is_span_impl<U>::value)
@@ -1768,7 +1787,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             static_assert(
                 func_traits::all_args_yield_safe(),
                 "generator function arguments must be fully owned across suspension; "
-                "string_view, binary, resource, term, and containers wrapping them "
+                "string_view, binary, term, and containers wrapping them "
                 "are not allowed. Specialize expp::is_yield_persistent<T> = std::true_type "
                 "for fully-owned custom decoded types.");
 

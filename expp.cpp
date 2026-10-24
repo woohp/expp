@@ -301,6 +301,40 @@ resource<MyResource> resource_identity(resource<MyResource> res)
 }
 
 
+struct Holder
+{
+    resource<MyResource> inner;
+};
+
+
+resource<Holder> make_holder(resource<MyResource> inner)
+{
+    return resource<Holder>::alloc(std::move(inner));
+}
+
+
+resource<MyResource> holder_inner(resource<Holder> holder)
+{
+    return holder->inner;
+}
+
+
+// Copies share the object: a write through one handle is visible through the other.
+int increment_through_copy(resource<MyResource> res)
+{
+    auto copy = res;
+    copy->value += 1;
+    return res->value;
+}
+
+
+yielding<int> yield_resource_value(resource<MyResource> res)
+{
+    co_yield nullopt;
+    co_yield res->value;
+}
+
+
 int throwing_resource_destructions = 0;
 
 
@@ -564,6 +598,7 @@ int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
     yielding_resource_t::init(env, "yielding_generator");
     resource<MyResource>::init(env, "MyResource");
     resource<ThrowingResource>::init(env, "ThrowingResource");
+    resource<Holder>::init(env, "Holder");
     return 0;
 }
 
@@ -617,6 +652,10 @@ MODULE(
     def(make_resource_incremented, DirtyFlags::NotDirty),
     def(use_resource, DirtyFlags::NotDirty),
     def(resource_identity, DirtyFlags::NotDirty),
+    def(make_holder, DirtyFlags::NotDirty),
+    def(holder_inner, DirtyFlags::NotDirty),
+    def(increment_through_copy, DirtyFlags::NotDirty),
+    def(yield_resource_value, DirtyFlags::NotDirty),
     def(make_throwing_resource, DirtyFlags::NotDirty),
     def(make_uninitialized_resource, DirtyFlags::NotDirty),
     def(throw_error, DirtyFlags::NotDirty),

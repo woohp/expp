@@ -530,6 +530,24 @@ defmodule MyModTest do
       assert MyMod.use_resource(res) == 7
     end
 
+    test "a resource stored in another resource stays alive and keeps its identity" do
+      res = MyMod.make_resource(9)
+      holder = MyMod.make_holder(res)
+      assert MyMod.holder_inner(holder) == res
+
+      holder = MyMod.make_holder(MyMod.make_resource(11))
+      :erlang.garbage_collect()
+      assert MyMod.use_resource(MyMod.holder_inner(holder)) == 11
+    end
+
+    test "copied handles share the object" do
+      assert MyMod.increment_through_copy(MyMod.make_resource(1)) == 2
+    end
+
+    test "yielding NIFs can take resources" do
+      assert MyMod.yield_resource_value(MyMod.make_resource(5)) == 5
+    end
+
     test "throwing constructor does not run the destructor" do
       assert MyMod.make_throwing_resource() == 0
     end

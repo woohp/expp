@@ -5,10 +5,15 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 
 namespace expp
 {
+// A reference-counted handle to a NIF resource, like std::shared_ptr but sharing the
+// VM's count: each handle holds one reference, so handles can be copied, stored in
+// other objects, and kept across calls. T lives in the resource memory, so returning
+// the same object again yields the same Erlang reference.
 template <typename T>
     requires std::destructible<T>
 class resource
@@ -18,37 +23,53 @@ class resource
     using slot = std::optional<T>;
 
     slot* objp;
-    bool owns_;
 
     friend struct type_cast<resource<T>>;
 
-    resource(void* objp, bool owns) :
-        objp(static_cast<slot*>(objp)),
-        owns_(owns)
+    // Adopts a reference the caller already holds.
+    explicit resource(void* objp) :
+        objp(static_cast<slot*>(objp))
     {}
 
 public:
     typedef T type;
 
-    resource(const resource<T>&) = delete;
-
-    resource(resource<T>&& other) :
-        objp(other.objp),
-        owns_(other.owns_)
+    resource(const resource<T>& other) :
+        objp(other.objp)
     {
-        other.objp = nullptr;
-        other.owns_ = false;
+        if (objp)
+            enif_keep_resource(objp);
+    }
+
+    resource(resource<T>&& other) noexcept :
+        objp(std::exchange(other.objp, nullptr))
+    {}
+
+    resource<T>& operator=(resource<T> other) noexcept
+    {
+        std::swap(objp, other.objp);
+        return *this;
     }
 
     ~resource()
     {
-        if (owns_ && objp)
+        if (objp)
             enif_release_resource(objp);
     }
 
-    T& get()
+    T& get() const
     {
         return **objp;
+    }
+
+    T& operator*() const
+    {
+        return get();
+    }
+
+    T* operator->() const
+    {
+        return &get();
     }
 
     template <typename... Args>
@@ -65,7 +86,7 @@ public:
             throw std::bad_alloc{};
 
         // Owning the resource first releases it if the constructor throws.
-        resource<T> res{new (buf) slot, true};
+        resource<T> res{new (buf) slot};
         res.objp->emplace(std::forward<Args>(args)...);
         return res;
     }

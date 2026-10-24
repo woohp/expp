@@ -423,9 +423,13 @@ resource<Counter> make_counter(int start)
 
 int read_counter(resource<Counter> c)
 {
-    return c.get().value;
+    return c->value;
 }
 ```
+
+`resource<T>` is reference-counted like `std::shared_ptr`, sharing the VM's count: every handle, including one decoded
+from an argument, keeps the resource alive, so handles can be copied, stored in other objects (including other
+resources), and used in yielding NIFs. Returning the same object again gives the same Elixir reference.
 
 `alloc(args...)` constructs `T(args...)` with parentheses, like `std::make_unique`, so aggregates work and
 `alloc(3, 0)` for a `std::vector<int>` makes three zeros.
