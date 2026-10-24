@@ -125,12 +125,6 @@ resource<MyResource> make_resource(int i)
 {
     return resource<MyResource>::alloc(i);
 }
-
-int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
-{
-    resource<MyResource>::init(env, "MyResource");
-    return 0;
-}
 ```
 
 ## Coroutines

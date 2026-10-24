@@ -404,18 +404,6 @@ int make_throwing_resource()
 }
 
 
-struct UninitializedResource
-{
-    int value;
-};
-
-
-resource<UninitializedResource> make_uninitialized_resource()
-{
-    return resource<UninitializedResource>::alloc(1);
-}
-
-
 int throw_error(int i)
 {
     if (i == 0)
@@ -654,22 +642,29 @@ yielding<MyPersistentType> yield_persistent_type(int n)
 }
 
 
-int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
+int load_time_value = 0;
+
+
+// Resource types are open by the time the user's load callback runs.
+int load(ErlNifEnv*, void**, ERL_NIF_TERM)
 {
-    yielding_resource_t::init(env, "yielding_generator");
-    resource<MyResource>::init(env, "MyResource");
-    resource<ThrowingResource>::init(env, "ThrowingResource");
-    resource<Node>::init(env, "Node");
+    load_time_value = resource<MyResource>::alloc(42)->value;
     return 0;
+}
+
+
+int loaded_value()
+{
+    return load_time_value;
 }
 
 
 using upgrade_callback = int (*)(ErlNifEnv*, void**, void**, ERL_NIF_TERM);
 constexpr upgrade_callback null_upgrade = nullptr;
 
-static_assert(expp::guard<nullptr>() == nullptr);
-static_assert(expp::guard<NULL>() == nullptr);
-static_assert(expp::guard<null_upgrade>() == nullptr);
+static_assert(expp::detail::on_upgrade<nullptr>() == nullptr);
+static_assert(expp::detail::on_upgrade<NULL>() == nullptr);
+static_assert(expp::detail::on_upgrade<null_upgrade>() == nullptr);
 
 
 MODULE(
@@ -719,7 +714,7 @@ MODULE(
     def(yield_node_value, DirtyFlags::NotDirty),
     def(node_live, DirtyFlags::NotDirty),
     def(make_throwing_resource, DirtyFlags::NotDirty),
-    def(make_uninitialized_resource, DirtyFlags::NotDirty),
+    def(loaded_value, DirtyFlags::NotDirty),
     def(throw_error, DirtyFlags::NotDirty),
     def(dirty_cpu_test, DirtyFlags::DirtyCpu),
     def(binary_identity, DirtyFlags::NotDirty),

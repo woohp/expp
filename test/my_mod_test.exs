@@ -595,10 +595,8 @@ defmodule MyModTest do
       assert MyMod.make_throwing_resource() == 0
     end
 
-    test "uninitialized resource type raises RuntimeError" do
-      assert_raise RuntimeError, ~r/resource type not initialized/, fn ->
-        MyMod.make_uninitialized_resource()
-      end
+    test "the load callback can allocate resources" do
+      assert MyMod.loaded_value() == 42
     end
 
     test "invalid resource reference raises ArgumentError" do

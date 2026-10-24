@@ -47,7 +47,7 @@ defmodule MyMod do
   def yield_node_value(_node), do: :erlang.nif_error(:not_loaded)
   def node_live(), do: :erlang.nif_error(:not_loaded)
   def make_throwing_resource(), do: :erlang.nif_error(:not_loaded)
-  def make_uninitialized_resource(), do: :erlang.nif_error(:not_loaded)
+  def loaded_value(), do: :erlang.nif_error(:not_loaded)
   def throw_error(_i), do: :erlang.nif_error(:not_loaded)
   def dirty_cpu_test(_i), do: :erlang.nif_error(:not_loaded)
   def binary_identity(_b), do: :erlang.nif_error(:not_loaded)

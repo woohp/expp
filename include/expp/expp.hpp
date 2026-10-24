@@ -202,12 +202,20 @@ consteval ErlNifFunc def_impl(const char* name)
 }
 
 
-template <auto callback, typename... Args>
-int guarded_callback(Args... args) noexcept
+namespace detail
+{
+// True for nullptr, NULL, or a null function pointer.
+template <auto callback>
+inline constexpr bool is_null = callback == decltype(callback){};
+
+
+// Runs a load or upgrade step, failing the load instead of letting an exception escape into the VM.
+template <typename F>
+int guarded(F step) noexcept
 {
     try
     {
-        return callback(args...);
+        return step();
     }
     catch (const std::exception& e)
     {
@@ -221,18 +229,36 @@ int guarded_callback(Args... args) noexcept
 }
 
 
-// Wraps a load or upgrade callback so an exception (e.g. from resource<T>::init) fails
-// the load instead of escaping into the VM. A null callback (nullptr, NULL, or a null
-// function pointer) stays null, since a null upgrade callback tells the VM that upgrades
-// are unsupported.
-template <auto callback>
-consteval auto guard()
+// MODULE's load callback: opens the resource types, then runs the user's callback, if any.
+template <auto user_load>
+int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) noexcept
 {
-    if constexpr (callback == decltype(callback){})
+    return guarded([&] {
+        detail::open_resource_types(env, ERL_NIF_RT_CREATE);
+        if constexpr (is_null<user_load>)
+            return 0;
+        else
+            return user_load(env, priv_data, load_info);
+    });
+}
+
+
+// MODULE's upgrade callback, null if the user's is: a null upgrade callback tells the VM
+// that upgrades are unsupported. Takes over the resources of the library being replaced.
+template <auto user_upgrade>
+consteval auto on_upgrade()
+{
+    if constexpr (is_null<user_upgrade>)
         return nullptr;
     else
-        return []<typename... Args>(int (*)(Args...)) { return &guarded_callback<callback, Args...>; }(callback);
+        return +[](ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info) noexcept {
+            return guarded([&] {
+                detail::open_resource_types(env, ErlNifResourceFlags(ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER));
+                return user_upgrade(env, priv_data, old_priv_data, load_info);
+            });
+        };
 }
+}  // namespace detail
 }  // namespace expp
 
 
@@ -252,4 +278,4 @@ We want to be able to write:
 
 #define MODULE(NAME, LOAD, UPGRADE, UNLOAD, ...)                                                                       \
     ErlNifFunc _nif_funcs[] = {__VA_ARGS__};                                                                           \
-    ERL_NIF_INIT(NAME, _nif_funcs, expp::guard<LOAD>(), nullptr, expp::guard<UPGRADE>(), UNLOAD)
+    ERL_NIF_INIT(NAME, _nif_funcs, expp::detail::on_load<LOAD>, nullptr, expp::detail::on_upgrade<UPGRADE>(), UNLOAD)

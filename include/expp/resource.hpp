@@ -6,11 +6,46 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <typeinfo>
 #include <utility>
+#include <vector>
 
 
 namespace expp
 {
+namespace detail
+{
+struct resource_registration
+{
+    ErlNifResourceType** type;
+    const char* name;
+    ErlNifResourceDtor* destructor;
+};
+
+
+// Per-library state is hidden: GCC otherwise unifies inline and template statics across
+// all loaded libraries (STB_GNU_UNIQUE), so two NIF libraries, or the old and new
+// versions during an upgrade, would share registrations and resource types.
+[[gnu::visibility("hidden")]] inline std::vector<resource_registration>& resource_registrations()
+{
+    static std::vector<resource_registration> registrations;
+    return registrations;
+}
+
+
+// Opens every registered resource type; MODULE's load and upgrade callbacks call this.
+inline void open_resource_types(ErlNifEnv* env, ErlNifResourceFlags flags)
+{
+    for (const auto& [type, name, destructor] : resource_registrations())
+    {
+        *type = enif_open_resource_type(env, nullptr, name, destructor, flags, nullptr);
+        if (!*type)
+            throw std::runtime_error(std::string("failed to open NIF resource type: ") + name);
+    }
+}
+}  // namespace detail
+
+
 // A reference-counted handle to a NIF resource, like std::shared_ptr but sharing the
 // VM's count: each handle holds one reference, so handles can be copied, stored in
 // other objects, and kept across calls. T lives in the resource memory, so returning
@@ -80,10 +115,10 @@ public:
         requires std::constructible_from<T, Args...>
     static resource<T> alloc(Args&&... args)
     {
+        // Naming registered instantiates it, which registers T for MODULE's load callback.
+        (void)resource<T>::registered;
         if (!resource<T>::resource_type)
-            throw std::runtime_error(
-                "NIF resource type not initialized; call resource<T>::init(env, name) in the load callback "
-                "(yielding NIFs need yielding_resource_t::init)");
+            throw std::runtime_error("NIF resource type not opened; define the NIF module with MODULE");
 
         void* buf = enif_alloc_resource(resource<T>::resource_type, sizeof(slot));
         if (!buf)
@@ -95,24 +130,18 @@ public:
         return res;
     }
 
-    static void init(ErlNifEnv* env, const char* name)
-        requires std::destructible<T>
-    {
-        resource<T>::resource_type =
-            enif_open_resource_type(env, nullptr, name, resource<T>::destructor, ERL_NIF_RT_CREATE, nullptr);
-        if (!resource<T>::resource_type)
-            throw std::runtime_error(std::string("failed to open NIF resource type: ") + name);
-    }
-
     static void destructor(ErlNifEnv*, void* objp)
     {
         static_cast<slot*>(objp)->~slot();
     }
 
-    static ErlNifResourceType* resource_type;
+    // Hidden, like resource_registrations.
+    [[gnu::visibility("hidden")]] static inline ErlNifResourceType* resource_type = nullptr;
+
+private:
+    // Initialized when the library is loaded, before its load callback runs. The mangled
+    // name is unique per type and stable across builds, as upgrades require.
+    [[gnu::visibility("hidden")]] static inline const bool registered =
+        (detail::resource_registrations().push_back({&resource_type, typeid(T).name(), destructor}), true);
 };
-
-
-template <typename T>
-ErlNifResourceType* resource<T>::resource_type = nullptr;
 }  // namespace expp
