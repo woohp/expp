@@ -24,8 +24,8 @@ struct resource_registration
 
 
 // Per-library state is hidden: GCC otherwise unifies inline and template statics across
-// all loaded libraries (STB_GNU_UNIQUE), so two NIF libraries, or the old and new
-// versions during an upgrade, would share registrations and resource types.
+// all loaded libraries (STB_GNU_UNIQUE), so two NIF libraries would share registrations
+// and resource types.
 [[gnu::visibility("hidden")]] inline std::vector<resource_registration>& resource_registrations()
 {
     static std::vector<resource_registration> registrations;
@@ -33,12 +33,12 @@ struct resource_registration
 }
 
 
-// Opens every registered resource type; MODULE's load and upgrade callbacks call this.
-inline void open_resource_types(ErlNifEnv* env, ErlNifResourceFlags flags)
+// Opens every registered resource type; MODULE's load callback calls this.
+inline void open_resource_types(ErlNifEnv* env)
 {
     for (const auto& [type, name, destructor] : resource_registrations())
     {
-        *type = enif_open_resource_type(env, nullptr, name, destructor, flags, nullptr);
+        *type = enif_open_resource_type(env, nullptr, name, destructor, ERL_NIF_RT_CREATE, nullptr);
         if (!*type)
             throw std::runtime_error(std::string("failed to open NIF resource type: ") + name);
     }
@@ -140,7 +140,7 @@ public:
 
 private:
     // Initialized when the library is loaded, before its load callback runs. The mangled
-    // name is unique per type and stable across builds, as upgrades require.
+    // name is unique per type.
     [[gnu::visibility("hidden")]] static inline const bool registered =
         (detail::resource_registrations().push_back({&resource_type, typeid(T).name(), destructor}), true);
 };

@@ -11,7 +11,6 @@ MODULE(
     Elixir.MyMod,
     nullptr,
     nullptr,
-    nullptr,
     def(add, expp::DirtyFlags::NotDirty))
 ```
 
@@ -65,7 +64,6 @@ int add(int a, int b)
 
 MODULE(
     Elixir.MyNif,
-    nullptr,
     nullptr,
     nullptr,
     def(add, expp::DirtyFlags::NotDirty))
@@ -160,7 +158,6 @@ auto image_size(int width, int height)
 
 MODULE(
     my_nif_ffi,
-    nullptr,
     nullptr,
     nullptr,
     def(add, DirtyFlags::NotDirty),
@@ -354,7 +351,6 @@ Use `def(fn, flags)` or `def(fn, "elixir_name", flags)` inside the `MODULE(...)`
 MODULE(
     Elixir.MyMod,
     nullptr,                       // load callback (or nullptr)
-    nullptr,                       // upgrade callback (or nullptr)
     nullptr,                       // unload callback (or nullptr)
     def(add, DirtyFlags::NotDirty),
     def(dirty_cpu_fn, DirtyFlags::DirtyCpu),
@@ -364,11 +360,10 @@ MODULE(
 
 By default the NIF is named after the C++ function. Pass a string as the second argument to override (`def(fn, "elixir_name", ...)`).
 
-Resource types need no setup: `MODULE` opens them before calling your `load` callback, and takes over the old
-library's resources before calling your `upgrade` callback. A null upgrade callback means the library can't be upgraded
-in place, as with plain `ERL_NIF_INIT`.
+Resource types need no setup: `MODULE` opens them before calling your `load` callback. Hot upgrades aren't supported,
+so reloading a module whose NIF library is still loaded fails.
 
-If `load` or `upgrade` throws, or a resource type fails to open, the message is printed to stderr and `:erlang.load_nif/2`
+If `load` throws, or a resource type fails to open, the message is printed to stderr and `:erlang.load_nif/2`
 returns an error instead of the VM crashing.
 
 ---

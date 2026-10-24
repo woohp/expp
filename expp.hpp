@@ -481,8 +481,8 @@ struct resource_registration
 
 
 // Per-library state is hidden: GCC otherwise unifies inline and template statics across
-// all loaded libraries (STB_GNU_UNIQUE), so two NIF libraries, or the old and new
-// versions during an upgrade, would share registrations and resource types.
+// all loaded libraries (STB_GNU_UNIQUE), so two NIF libraries would share registrations
+// and resource types.
 [[gnu::visibility("hidden")]] inline std::vector<resource_registration>& resource_registrations()
 {
     static std::vector<resource_registration> registrations;
@@ -490,12 +490,12 @@ struct resource_registration
 }
 
 
-// Opens every registered resource type; MODULE's load and upgrade callbacks call this.
-inline void open_resource_types(ErlNifEnv* env, ErlNifResourceFlags flags)
+// Opens every registered resource type; MODULE's load callback calls this.
+inline void open_resource_types(ErlNifEnv* env)
 {
     for (const auto& [type, name, destructor] : resource_registrations())
     {
-        *type = enif_open_resource_type(env, nullptr, name, destructor, flags, nullptr);
+        *type = enif_open_resource_type(env, nullptr, name, destructor, ERL_NIF_RT_CREATE, nullptr);
         if (!*type)
             throw std::runtime_error(std::string("failed to open NIF resource type: ") + name);
     }
@@ -597,7 +597,7 @@ public:
 
 private:
     // Initialized when the library is loaded, before its load callback runs. The mangled
-    // name is unique per type and stable across builds, as upgrades require.
+    // name is unique per type.
     [[gnu::visibility("hidden")]] static inline const bool registered =
         (detail::resource_registrations().push_back({&resource_type, typeid(T).name(), destructor}), true);
 };
@@ -1937,59 +1937,29 @@ consteval ErlNifFunc def_impl(const char* name)
 
 namespace detail
 {
-// True for nullptr, NULL, or a null function pointer.
-template <auto callback>
-inline constexpr bool is_null = callback == decltype(callback){};
-
-
-// Runs a load or upgrade step, failing the load instead of letting an exception escape into the VM.
-template <typename F>
-int guarded(F step) noexcept
-{
-    try
-    {
-        return step();
-    }
-    catch (const std::exception& e)
-    {
-        enif_fprintf(stderr, "expp: NIF load/upgrade callback failed: %s\n", e.what());
-    }
-    catch (...)
-    {
-        enif_fprintf(stderr, "expp: NIF load/upgrade callback failed with an unknown exception\n");
-    }
-    return -1;
-}
-
-
-// MODULE's load callback: opens the resource types, then runs the user's callback, if any.
+// MODULE's load callback: opens the resource types, then runs the user's callback, if any
+// (LOAD may be nullptr, NULL, or a null function pointer). An exception fails the load
+// instead of escaping into the VM.
 template <auto user_load>
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) noexcept
 {
-    return guarded([&] {
-        detail::open_resource_types(env, ERL_NIF_RT_CREATE);
-        if constexpr (is_null<user_load>)
+    try
+    {
+        open_resource_types(env);
+        if constexpr (user_load == decltype(user_load){})
             return 0;
         else
             return user_load(env, priv_data, load_info);
-    });
-}
-
-
-// MODULE's upgrade callback, null if the user's is: a null upgrade callback tells the VM
-// that upgrades are unsupported. Takes over the resources of the library being replaced.
-template <auto user_upgrade>
-consteval auto on_upgrade()
-{
-    if constexpr (is_null<user_upgrade>)
-        return nullptr;
-    else
-        return +[](ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info) noexcept {
-            return guarded([&] {
-                detail::open_resource_types(env, ErlNifResourceFlags(ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER));
-                return user_upgrade(env, priv_data, old_priv_data, load_info);
-            });
-        };
+    }
+    catch (const std::exception& e)
+    {
+        enif_fprintf(stderr, "expp: NIF load callback failed: %s\n", e.what());
+    }
+    catch (...)
+    {
+        enif_fprintf(stderr, "expp: NIF load callback failed with an unknown exception\n");
+    }
+    return -1;
 }
 }  // namespace detail
 }  // namespace expp
@@ -2009,7 +1979,7 @@ We want to be able to write:
 #define def(...) GET_MACRO(__VA_ARGS__, DEF3, DEF2, UNUSED)(__VA_ARGS__)
 
 
-#define MODULE(NAME, LOAD, UPGRADE, UNLOAD, ...)                                                                       \
+#define MODULE(NAME, LOAD, UNLOAD, ...)                                                                                \
     ErlNifFunc _nif_funcs[] = {__VA_ARGS__};                                                                           \
-    ERL_NIF_INIT(NAME, _nif_funcs, expp::detail::on_load<LOAD>, nullptr, expp::detail::on_upgrade<UPGRADE>(), UNLOAD)
+    ERL_NIF_INIT(NAME, _nif_funcs, expp::detail::on_load<LOAD>, nullptr, nullptr, UNLOAD)
 
