@@ -392,6 +392,24 @@ resource_binary<Buffer> buffer_tail(string bytes, size_t offset)
 }
 
 
+// Every chunk views, and keeps alive, the same buffer.
+vector<resource_binary<Buffer>> buffer_chunks(string bytes, size_t chunk_size)
+{
+    if (chunk_size == 0)
+        throw std::invalid_argument("chunk_size must be positive");
+    auto buf = resource<Buffer>::alloc(std::move(bytes));
+    vector<resource_binary<Buffer>> chunks;
+    for (size_t i = 0; i < buf->bytes.size(); i += chunk_size)
+        chunks.push_back(resource_binary{buf, buf->bytes.data() + i, std::min(chunk_size, buf->bytes.size() - i)});
+    return chunks;
+}
+
+
+static_assert(requires(ErlNifEnv* env, const map<int, resource_binary<Buffer>>& m) {
+    type_cast<map<int, resource_binary<Buffer>>>::to_term(env, m);
+});
+
+
 int buffer_live()
 {
     return buffer_live_count;
@@ -749,6 +767,7 @@ MODULE(
     def(yield_node_value, DirtyFlags::NotDirty),
     def(node_live, DirtyFlags::NotDirty),
     def(buffer_tail, DirtyFlags::NotDirty),
+    def(buffer_chunks, DirtyFlags::NotDirty),
     def(buffer_live, DirtyFlags::NotDirty),
     def(make_throwing_resource, DirtyFlags::NotDirty),
     def(loaded_value, DirtyFlags::NotDirty),
