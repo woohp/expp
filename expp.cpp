@@ -1,4 +1,5 @@
 #include "expp.hpp"
+#include <atomic>
 #include <memory_resource>
 
 using namespace std;
@@ -319,6 +320,64 @@ resource<MyResource> holder_inner(resource<Holder> holder)
 }
 
 
+std::atomic<int> node_live_count = 0;
+
+
+// Holds handles to its own type, so resource<Node> is used while Node is incomplete.
+struct Node
+{
+    int value;
+    vector<resource<Node>> children;
+
+    Node(int value, vector<resource<Node>> children) :
+        value(value),
+        children(std::move(children))
+    {
+        node_live_count++;
+    }
+
+    ~Node()
+    {
+        node_live_count--;
+    }
+};
+
+
+resource<Node> make_node(int value, vector<resource<Node>> children)
+{
+    return resource<Node>::alloc(value, std::move(children));
+}
+
+
+int tree_sum(resource<Node> node)
+{
+    int sum = node->value;
+    for (const auto& child : node->children)
+        sum += tree_sum(child);
+    return sum;
+}
+
+
+void set_first_child(resource<Node> node, resource<Node> child)
+{
+    node->children.at(0) = child;
+}
+
+
+// Holds node across a suspension, then throws, so cleanup after an exception releases it.
+yielding<int> yield_node_then_throw([[maybe_unused]] resource<Node> node)
+{
+    co_yield nullopt;
+    throw std::runtime_error("boom");
+}
+
+
+int node_live()
+{
+    return node_live_count;
+}
+
+
 // Copies share the object: a write through one handle is visible through the other.
 int increment_through_copy(resource<MyResource> res)
 {
@@ -599,6 +658,7 @@ int load(ErlNifEnv* env, void**, ERL_NIF_TERM)
     resource<MyResource>::init(env, "MyResource");
     resource<ThrowingResource>::init(env, "ThrowingResource");
     resource<Holder>::init(env, "Holder");
+    resource<Node>::init(env, "Node");
     return 0;
 }
 
@@ -655,6 +715,11 @@ MODULE(
     def(make_holder, DirtyFlags::NotDirty),
     def(holder_inner, DirtyFlags::NotDirty),
     def(increment_through_copy, DirtyFlags::NotDirty),
+    def(make_node, DirtyFlags::NotDirty),
+    def(tree_sum, DirtyFlags::NotDirty),
+    def(set_first_child, DirtyFlags::NotDirty),
+    def(yield_node_then_throw, DirtyFlags::NotDirty),
+    def(node_live, DirtyFlags::NotDirty),
     def(yield_resource_value, DirtyFlags::NotDirty),
     def(make_throwing_resource, DirtyFlags::NotDirty),
     def(make_uninitialized_resource, DirtyFlags::NotDirty),

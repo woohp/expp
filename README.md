@@ -429,7 +429,12 @@ int read_counter(resource<Counter> c)
 
 `resource<T>` is reference-counted like `std::shared_ptr`, sharing the VM's count: every handle, including one decoded
 from an argument, keeps the resource alive, so handles can be copied, stored in other objects (including other
-resources), and used in yielding NIFs. Returning the same object again gives the same Elixir reference.
+resources), and used in yielding NIFs. Returning the same object again gives the same Elixir reference. `T` may be
+incomplete where a handle is only declared, so a type can hold handles to its own type (e.g. tree children).
+
+Two caveats, as with `std::shared_ptr`: the reference count is thread-safe but access to `T` is not, so guard shared
+mutable state yourself; and a cycle of handles is never freed, so back-pointers (e.g. child to parent) must not be
+`resource<T>` handles.
 
 `alloc(args...)` constructs `T(args...)` with parentheses, like `std::make_unique`, so aggregates work and
 `alloc(3, 0)` for a `std::vector<int>` makes three zeros.

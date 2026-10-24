@@ -472,9 +472,9 @@ namespace expp
 // A reference-counted handle to a NIF resource, like std::shared_ptr but sharing the
 // VM's count: each handle holds one reference, so handles can be copied, stored in
 // other objects, and kept across calls. T lives in the resource memory, so returning
-// the same object again yields the same Erlang reference.
+// the same object again yields the same Erlang reference. T may be incomplete where a
+// handle is only declared, copied, or released, e.g. inside T's own definition.
 template <typename T>
-    requires std::destructible<T>
 class resource
 {
     // The resource memory holds an optional, so if T's constructor throws in
@@ -493,7 +493,7 @@ class resource
 public:
     typedef T type;
 
-    resource(const resource<T>& other) :
+    resource(const resource<T>& other) noexcept :
         objp(other.objp)
     {
         if (objp)
@@ -516,19 +516,19 @@ public:
             enif_release_resource(objp);
     }
 
-    T& get() const
+    T& get() const noexcept
     {
         return **objp;
     }
 
-    T& operator*() const
+    T& operator*() const noexcept
     {
         return get();
     }
 
-    T* operator->() const
+    T* operator->() const noexcept
     {
-        return &get();
+        return std::addressof(get());
     }
 
     template <typename... Args>
@@ -551,6 +551,7 @@ public:
     }
 
     static void init(ErlNifEnv* env, const char* name)
+        requires std::destructible<T>
     {
         resource<T>::resource_type =
             enif_open_resource_type(env, nullptr, name, resource<T>::destructor, ERL_NIF_RT_CREATE, nullptr);
@@ -568,7 +569,6 @@ public:
 
 
 template <typename T>
-    requires std::destructible<T>
 ErlNifResourceType* resource<T>::resource_type = nullptr;
 }  // namespace expp
 
