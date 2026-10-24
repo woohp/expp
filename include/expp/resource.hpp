@@ -1,4 +1,5 @@
 #pragma once
+#include "type_cast_fwd.hpp"
 #include <concepts>
 #include <erl_nif.h>
 #include <memory>

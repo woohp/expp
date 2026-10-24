@@ -5,8 +5,18 @@ ifeq ($(shell uname -s),Darwin)
 NIF_LDFLAGS += -undefined dynamic_lookup
 endif
 
-expp.so: expp.cpp expp.hpp
-	$(CXX) -I$(ERTS_INCLUDE_DIR) -std=c++23 -Wall -Wextra -Werror -fPIC $(NIF_LDFLAGS) -o $@ expp.cpp
+HEADERS := $(wildcard include/expp/*.hpp)
+
+expp.so: expp.cpp $(HEADERS)
+	$(CXX) -I$(ERTS_INCLUDE_DIR) -Iinclude -std=c++23 -Wall -Wextra -Werror -fPIC $(NIF_LDFLAGS) -o $@ expp.cpp
+
+# Each header must compile on its own, whatever the user includes first.
+check-headers:
+	@for h in $(HEADERS); do \
+		echo '#include "'$$h'"' | $(CXX) -I$(ERTS_INCLUDE_DIR) -std=c++23 -Wall -Wextra -Werror -fsyntax-only -x c++ - || exit 1; \
+	done
+
+.PHONY: check-headers clean format
 
 clean:
 	$(RM) expp.so
@@ -14,6 +24,3 @@ clean:
 format:
 	clang-format -i include/expp/*.hpp expp.cpp
 	mix format
-
-bundle:
-	./scripts/bundle.sh

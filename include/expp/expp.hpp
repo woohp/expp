@@ -5,6 +5,7 @@
 #include "gleam.hpp"
 #include "process.hpp"
 #include "resource.hpp"
+#include "stl.hpp"
 #include "yielding.hpp"
 #include <algorithm>
 #include <chrono>

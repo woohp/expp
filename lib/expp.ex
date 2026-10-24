@@ -1,8 +1,8 @@
 defmodule Expp do
-  @include_dir Path.expand(".")
+  @include_dir Path.expand("include")
 
   @doc """
-  Returns the directory containing the expp C++ headers (`expp.hpp`).
+  Returns the include directory for the expp C++ headers, for `#include "expp/expp.hpp"`.
   """
   @spec include_dir() :: String.t()
   def include_dir(), do: @include_dir

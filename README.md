@@ -3,7 +3,7 @@
 Header-only C++23 library for writing native Erlang NIFs. Zero dependencies beyond the Erlang VM headers (OTP 26 or later) and a C++23 compiler. Supports Linux and macOS; Windows is not supported.
 
 ```cpp
-#include "expp.hpp"
+#include "expp/expp.hpp"
 
 int add(int a, int b) { return a + b; }
 
@@ -55,7 +55,7 @@ end
 Write your NIF in `src/my_nif.cpp`:
 
 ```cpp
-#include "expp.hpp"
+#include "expp/expp.hpp"
 
 int add(int a, int b)
 {
@@ -128,7 +128,7 @@ mkdir -p c_src priv
 Write `c_src/my_nif.cpp`:
 
 ```cpp
-#include "expp.hpp"
+#include "expp/expp.hpp"
 
 using namespace expp;
 
@@ -172,11 +172,11 @@ MODULE(
     def(image_size, DirtyFlags::NotDirty))
 ```
 
-Create `Makefile`. Gleam dependencies are checked out under `build/packages`, so the default `EXPP_INCLUDE_DIR` points at expp's package directory containing `expp.hpp`:
+Create `Makefile`. Gleam dependencies are checked out under `build/packages`, so the default `EXPP_INCLUDE_DIR` points at the `include` directory of expp's package:
 
 ```makefile
 ERTS_INCLUDE_DIR ?= $(shell erl -eval 'io:format("~s", [lists:concat([code:root_dir(), "/erts-", erlang:system_info(version), "/include"])])' -s init stop -noshell)
-EXPP_INCLUDE_DIR ?= build/packages/expp
+EXPP_INCLUDE_DIR ?= build/packages/expp/include
 SO_EXT ?= so
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -203,7 +203,7 @@ make
 If you are using an unpublished local checkout of expp, override the include path:
 
 ```sh
-make EXPP_INCLUDE_DIR=/path/to/expp
+make EXPP_INCLUDE_DIR=/path/to/expp/include
 ```
 
 Write the Erlang loader module in `src/my_nif_ffi.erl`:

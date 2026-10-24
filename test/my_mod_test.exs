@@ -651,12 +651,8 @@ defmodule MyModTest do
   end
 
   describe "Expp module" do
-    test "include_dir/0 returns the expp package root" do
-      dir = Expp.include_dir()
-      assert is_binary(dir)
-      assert String.ends_with?(dir, "expp")
-      assert File.dir?(dir)
-      assert File.exists?(Path.join(dir, "expp.hpp"))
+    test "include_dir/0 contains the expp headers" do
+      assert File.exists?(Path.join(Expp.include_dir(), "expp/expp.hpp"))
     end
   end
 
