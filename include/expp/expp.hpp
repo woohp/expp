@@ -248,5 +248,5 @@ We want to be able to write:
 
 
 #define MODULE(NAME, LOAD, UNLOAD, ...)                                                                                \
-    ErlNifFunc _nif_funcs[] = {__VA_ARGS__};                                                                           \
-    ERL_NIF_INIT(NAME, _nif_funcs, expp::detail::on_load<LOAD>, nullptr, nullptr, UNLOAD)
+    ErlNifFunc expp_nif_funcs_[] = {__VA_ARGS__};                                                                      \
+    ERL_NIF_INIT(NAME, expp_nif_funcs_, expp::detail::on_load<LOAD>, nullptr, nullptr, UNLOAD)
