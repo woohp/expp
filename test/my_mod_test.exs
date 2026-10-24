@@ -609,6 +609,11 @@ defmodule MyModTest do
       assert_raise ArgumentError, fn -> MyMod.buffer_tail("abc", 4) end
     end
 
+    test "resource binaries can be returned in containers" do
+      assert MyMod.buffer_chunks("abcdefg", 3) == ["abc", "def", "g"]
+      assert MyMod.buffer_chunks("", 3) == []
+    end
+
     test "throwing constructor does not run the destructor" do
       assert MyMod.make_throwing_resource() == 0
     end

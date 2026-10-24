@@ -9,11 +9,6 @@
 
 namespace expp
 {
-template <typename T>
-concept InnerType = (std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>) &&
-                    (type_castable<T> || std::is_same_v<T, std::byte>);
-
-
 // Vectors of these encode as binaries. bool is a 1-byte integral type too, but encodes as true/false.
 template <typename T>
 inline constexpr bool is_byte_v =
@@ -44,7 +39,9 @@ public:
 template <class F>
 scope_exit(F) -> scope_exit<F>;
 
-template <InnerType T, typename Alloc>
+// Like the map casts, unconstrained: each member uses only the element cast it needs, so
+// containers of encode-only types such as resource_binary can still be returned.
+template <typename T, typename Alloc>
 struct type_cast<std::vector<T, Alloc>>
 {
 private:
@@ -191,7 +188,7 @@ ERL_NIF_TERM encode_multimap(ErlNifEnv* env, const Map& _map)
 }  // namespace detail
 
 
-template <InnerType K, InnerType V, typename Hash, typename Eq, typename Alloc>
+template <typename K, typename V, typename Hash, typename Eq, typename Alloc>
 struct type_cast<std::unordered_map<K, V, Hash, Eq, Alloc>>
 {
     using map_type = std::unordered_map<K, V, Hash, Eq, Alloc>;
@@ -208,7 +205,7 @@ struct type_cast<std::unordered_map<K, V, Hash, Eq, Alloc>>
 };
 
 
-template <InnerType K, InnerType V, typename Compare, typename Alloc>
+template <typename K, typename V, typename Compare, typename Alloc>
 struct type_cast<std::map<K, V, Compare, Alloc>>
 {
     using map_type = std::map<K, V, Compare, Alloc>;
@@ -225,7 +222,7 @@ struct type_cast<std::map<K, V, Compare, Alloc>>
 };
 
 
-template <InnerType K, InnerType V, typename Compare, typename Alloc>
+template <typename K, typename V, typename Compare, typename Alloc>
 struct type_cast<std::multimap<K, V, Compare, Alloc>>
 {
     using map_type = std::multimap<K, V, Compare, Alloc>;
@@ -242,7 +239,7 @@ struct type_cast<std::multimap<K, V, Compare, Alloc>>
 };
 
 
-template <InnerType K, InnerType V, typename Hash, typename Eq, typename Alloc>
+template <typename K, typename V, typename Hash, typename Eq, typename Alloc>
 struct type_cast<std::unordered_multimap<K, V, Hash, Eq, Alloc>>
 {
     using map_type = std::unordered_multimap<K, V, Hash, Eq, Alloc>;

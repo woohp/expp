@@ -47,6 +47,7 @@ defmodule MyMod do
   def yield_node_value(_node), do: :erlang.nif_error(:not_loaded)
   def node_live(), do: :erlang.nif_error(:not_loaded)
   def buffer_tail(_bytes, _offset), do: :erlang.nif_error(:not_loaded)
+  def buffer_chunks(_bytes, _chunk_size), do: :erlang.nif_error(:not_loaded)
   def buffer_live(), do: :erlang.nif_error(:not_loaded)
   def make_throwing_resource(), do: :erlang.nif_error(:not_loaded)
   def loaded_value(), do: :erlang.nif_error(:not_loaded)
