@@ -163,6 +163,7 @@ struct resource_binary
 };
 
 
+// Clang only deduces aggregates from version 17; this guide covers Clang 16 and Apple Clang 15.
 template <typename T>
 resource_binary(resource<T>, const void*, std::size_t) -> resource_binary<T>;
 }  // namespace expp
