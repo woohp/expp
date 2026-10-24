@@ -48,6 +48,7 @@ gleam check
 - Use `DirtyFlags::DirtyCpu` for CPU-bound work, `DirtyFlags::DirtyIO` for blocking I/O, and `DirtyFlags::NotDirty` for fast calls.
 - Throw `std::invalid_argument` for bad arguments and `std::runtime_error` for runtime failures; the wrapper converts them to BEAM exceptions.
 - Throw `erl_error<T>(value)` to return `{:error, value}` / `{error, Value}` instead of raising.
+- A NIF function that needs the env takes `ErlNifEnv*` as its first parameter; it doesn't count toward the arity.
 
 Basic NIF shape:
 
@@ -89,6 +90,7 @@ Conversions are BEAM-term based and work across Erlang, Elixir, and Gleam surfac
 - `nil | value` ↔ `std::optional<T>`
 - `{ok, value} | {error, reason}` ↔ `std::expected<T,E>`
 - resources ↔ `expp::resource<T>`
+- local pids ↔ `ErlNifPid`; `expp::send(caller_env, pid, msg)` sends a converted message
 - raw terms ↔ `expp::term`
 
 ## Gleam Interop

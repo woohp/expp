@@ -3,6 +3,7 @@
 #include "ext_types.hpp"
 #include "generator.hpp"
 #include "gleam.hpp"
+#include "process.hpp"
 #include "resource.hpp"
 #include "yielding.hpp"
 #include <algorithm>
@@ -10,6 +11,7 @@
 #include <erl_nif.h>
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <utility>
 
 
@@ -18,18 +20,36 @@ namespace expp
 template <typename T>
 struct function_traits;
 
+
+namespace detail
+{
+template <typename... Args>
+inline constexpr bool first_is_env = false;
+
+template <typename First, typename... Rest>
+inline constexpr bool first_is_env<First, Rest...> = std::same_as<First, ErlNifEnv*>;
+}  // namespace detail
+
+
+// A NIF function may take the caller's ErlNifEnv* as its first parameter, which the
+// wrapper passes in and which doesn't count toward the NIF's arity.
 template <typename R, typename... Args, bool IsNoexcept>
 struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
 {
     using func_type = R(Args...) noexcept(IsNoexcept);
     using return_type = R;
-    static constexpr size_t nargs = sizeof...(Args);
+    using decayed_args = std::tuple<std::decay_t<Args>...>;
+    static constexpr bool takes_env = detail::first_is_env<Args...>;
+    static constexpr size_t nargs = sizeof...(Args) - takes_env;
 
     template <func_type fn, std::size_t... I>
     constexpr static R apply_impl(
         [[maybe_unused]] ErlNifEnv* env, [[maybe_unused]] const ERL_NIF_TERM argv[], std::index_sequence<I...>)
     {
-        return fn(type_cast<std::decay_t<Args>>::from_term(env, argv[I])...);
+        if constexpr (takes_env)
+            return fn(env, type_cast<std::tuple_element_t<I + 1, decayed_args>>::from_term(env, argv[I])...);
+        else
+            return fn(type_cast<std::tuple_element_t<I, decayed_args>>::from_term(env, argv[I])...);
     }
 
     template <func_type fn>
@@ -136,7 +156,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             static_assert(
                 func_traits::all_args_yield_safe(),
                 "generator function arguments must be fully owned across suspension; "
-                "string_view, binary, term, and containers wrapping them "
+                "string_view, binary, term, ErlNifEnv*, pointers, and containers wrapping them "
                 "are not allowed. Specialize expp::is_yield_persistent<T> = std::true_type "
                 "for fully-owned custom decoded types.");
 

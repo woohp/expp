@@ -230,6 +230,38 @@ defmodule MyModTest do
     assert MyMod.term_identity(:foo) == :foo
   end
 
+  describe "pids and messages" do
+    test "pids round-trip" do
+      assert MyMod.pid_identity(self()) == self()
+    end
+
+    test "non-pids and remote pids raise ArgumentError" do
+      assert_raise ArgumentError, ~r/expected a pid/, fn -> MyMod.pid_identity(:foo) end
+
+      node = "other@host"
+      remote = :erlang.binary_to_term(<<131, 88, 119, byte_size(node), node::binary, 1::32, 0::32, 1::32>>)
+      assert_raise ArgumentError, ~r/expected a local pid/, fn -> MyMod.pid_identity(remote) end
+    end
+
+    test "an env parameter doesn't count toward the arity" do
+      assert MyMod.process_alive(self())
+    end
+
+    test "send reaches live processes from NIF and non-VM threads" do
+      assert MyMod.send_twice(self(), "hi") == {true, true}
+      assert_received {:from_nif, "hi"}
+      assert_received {:from_thread, "hi"}
+    end
+
+    test "send returns false for dead processes" do
+      {pid, ref} = spawn_monitor(fn -> :ok end)
+      assert_receive {:DOWN, ^ref, :process, ^pid, _}
+
+      refute MyMod.process_alive(pid)
+      assert MyMod.send_twice(pid, "hi") == {false, false}
+    end
+  end
+
   test "empty list and map" do
     assert MyMod.vector_times_int([], 2) == []
     assert MyMod.times2(%{}) == %{}
