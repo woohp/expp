@@ -151,6 +151,15 @@ defmodule MyModTest do
     assert MyMod.get_expected(-5) == {:error, -123}
   end
 
+  test "expected<void, E> is :ok or {:error, reason}" do
+    assert MyMod.expected_void_negate(:ok) == :ok
+    assert MyMod.expected_void_negate({:error, 5}) == {:error, -5}
+
+    for bad <- [{:ok, 1}, :error, {:error}, {:other, 5}] do
+      assert_raise ArgumentError, ~r/expected ok or \{error, reason\}/, fn -> MyMod.expected_void_negate(bad) end
+    end
+  end
+
   test "expected returns binary error message" do
     assert MyMod.get_expected_stringview_error(-5) == {:error, "my bad..."}
   end

@@ -67,6 +67,10 @@ consteval bool is_yield_safe()
 {
     using U = std::remove_cvref_t<T>;
 
+    // void holds nothing, e.g. the value of std::expected<void, E>
+    if constexpr (std::is_void_v<U>)
+        return true;
+
     // Known unsafe types that borrow from the Erlang heap
     if constexpr (std::same_as<U, std::string_view> || std::same_as<U, binary> || std::same_as<U, term>)
         return false;

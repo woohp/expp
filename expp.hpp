@@ -977,6 +977,33 @@ public:
 };
 
 
+// The value-less result shape: :ok | {:error, reason}.
+template <typename E>
+struct type_cast<std::expected<void, E>>
+{
+    static std::expected<void, E> from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        if (detail::is_atom<"ok">(env, term))
+            return {};
+
+        const ERL_NIF_TERM* tuple = nullptr;
+        int arity = 0;
+        if (enif_get_tuple(env, term, &arity, &tuple) && arity == 2 && detail::is_atom<"error">(env, tuple[0]))
+            return std::unexpected(type_cast<E>::from_term(env, tuple[1]));
+
+        throw std::invalid_argument("expected ok or {error, reason}, got: " + format_term(term));
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::expected<void, E>& result)
+    {
+        if (result.has_value())
+            return detail::static_atom<"ok">(env);
+        else
+            return enif_make_tuple2(env, detail::static_atom<"error">(env), type_cast<E>::to_term(env, result.error()));
+    }
+};
+
+
 template <typename T>
 struct type_cast<std::optional<T>>
 {
@@ -1621,6 +1648,10 @@ template <typename T>
 consteval bool is_yield_safe()
 {
     using U = std::remove_cvref_t<T>;
+
+    // void holds nothing, e.g. the value of std::expected<void, E>
+    if constexpr (std::is_void_v<U>)
+        return true;
 
     // Known unsafe types that borrow from the Erlang heap
     if constexpr (std::same_as<U, std::string_view> || std::same_as<U, binary> || std::same_as<U, term>)
