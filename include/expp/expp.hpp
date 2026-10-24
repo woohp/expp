@@ -240,10 +240,11 @@ We want to be able to write:
     def(add, DirtyFlags::NotDirty)                // named after the function
     def(add_impl, "add", DirtyFlags::NotDirty)    // explicit name
 */
-#define DEF2(fn, dirty_flag) expp::def_impl<fn, dirty_flag>(#fn)
-#define DEF3(fn, name, dirty_flag) expp::def_impl<fn, dirty_flag>(name)
-#define GET_MACRO(_1, _2, _3, NAME, ...) NAME
-#define def(...) GET_MACRO(__VA_ARGS__, DEF3, DEF2, UNUSED)(__VA_ARGS__)
+#define EXPP_DEF2_(fn, dirty_flag) expp::def_impl<fn, dirty_flag>(#fn)
+#define EXPP_DEF3_(fn, name, dirty_flag) expp::def_impl<fn, dirty_flag>(name)
+#define EXPP_GET_MACRO_(_1, _2, _3, NAME, ...) NAME
+// A def without a dirty flag expands to the undefined EXPP_DEF_NEEDS_A_DIRTY_FLAG, so the error names the mistake.
+#define def(...) EXPP_GET_MACRO_(__VA_ARGS__, EXPP_DEF3_, EXPP_DEF2_, EXPP_DEF_NEEDS_A_DIRTY_FLAG)(__VA_ARGS__)
 
 
 #define MODULE(NAME, LOAD, UNLOAD, ...)                                                                                \
