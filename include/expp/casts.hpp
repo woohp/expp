@@ -392,6 +392,24 @@ struct type_cast<std::expected<void, E>>
 };
 
 
+// nil, e.g. for Gleam's Ok(Nil) as std::expected<std::monostate, E>.
+template <>
+struct type_cast<std::monostate>
+{
+    static std::monostate from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        if (!detail::is_atom<"nil">(env, term))
+            throw std::invalid_argument("expected nil, got: " + format_term(term));
+        return {};
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, std::monostate) noexcept
+    {
+        return detail::static_atom<"nil">(env);
+    }
+};
+
+
 template <typename T>
 struct type_cast<std::optional<T>>
 {
