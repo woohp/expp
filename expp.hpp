@@ -1060,6 +1060,48 @@ inline ERL_NIF_TERM from_current_exception(ErlNifEnv* env)
 }  // namespace exceptions
 }  // namespace expp
 
+// --- process.hpp ---
+
+
+namespace expp
+{
+template <>
+struct type_cast<ErlNifPid>
+{
+    static ErlNifPid from_term(ErlNifEnv* env, ERL_NIF_TERM term)
+    {
+        ErlNifPid pid;
+        if (!enif_is_pid(env, term))
+            throw std::invalid_argument("expected a pid, got: " + format_term(term));
+        if (!enif_get_local_pid(env, term, &pid))
+            throw std::invalid_argument("expected a local pid, got a remote one: " + format_term(term));
+        return pid;
+    }
+
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const ErlNifPid& pid) noexcept
+    {
+// enif_make_pid is a macro that casts to a const-qualified type.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-qualifiers"
+        return enif_make_pid(env, &pid);
+#pragma GCC diagnostic pop
+    }
+};
+
+
+// Sends msg to a local process, returning false if it isn't alive. Pass the env of the
+// calling NIF, or nullptr when sending from a thread the VM didn't create.
+template <typename T>
+bool send(ErlNifEnv* caller_env, const ErlNifPid& to, const T& msg)
+{
+    const std::unique_ptr<ErlNifEnv, decltype(&enif_free_env)> msg_env{enif_alloc_env(), enif_free_env};
+    if (!msg_env)
+        throw std::bad_alloc{};
+    const ERL_NIF_TERM term = type_cast<std::decay_t<T>>::to_term(msg_env.get(), msg);
+    return enif_send(caller_env, &to, msg_env.get(), term);
+}
+}  // namespace expp
+
 // --- stl.hpp ---
 
 
@@ -1476,6 +1518,12 @@ template <typename T>
 consteval bool is_yield_safe();
 
 
+// Local pids are immediate terms, valid in every env.
+template <>
+struct is_yield_persistent<ErlNifPid> : std::true_type
+{};
+
+
 template <detail::fixed_string Tag, typename... Args>
 struct is_yield_persistent<gleam::case_<Tag, Args...>> : std::bool_constant<(is_yield_safe<Args>() && ...)>
 {};
@@ -1672,18 +1720,36 @@ namespace expp
 template <typename T>
 struct function_traits;
 
+
+namespace detail
+{
+template <typename... Args>
+inline constexpr bool first_is_env = false;
+
+template <typename First, typename... Rest>
+inline constexpr bool first_is_env<First, Rest...> = std::same_as<First, ErlNifEnv*>;
+}  // namespace detail
+
+
+// A NIF function may take the caller's ErlNifEnv* as its first parameter, which the
+// wrapper passes in and which doesn't count toward the NIF's arity.
 template <typename R, typename... Args, bool IsNoexcept>
 struct function_traits<R (*)(Args...) noexcept(IsNoexcept)>
 {
     using func_type = R(Args...) noexcept(IsNoexcept);
     using return_type = R;
-    static constexpr size_t nargs = sizeof...(Args);
+    using decayed_args = std::tuple<std::decay_t<Args>...>;
+    static constexpr bool takes_env = detail::first_is_env<Args...>;
+    static constexpr size_t nargs = sizeof...(Args) - takes_env;
 
     template <func_type fn, std::size_t... I>
     constexpr static R apply_impl(
         [[maybe_unused]] ErlNifEnv* env, [[maybe_unused]] const ERL_NIF_TERM argv[], std::index_sequence<I...>)
     {
-        return fn(type_cast<std::decay_t<Args>>::from_term(env, argv[I])...);
+        if constexpr (takes_env)
+            return fn(env, type_cast<std::tuple_element_t<I + 1, decayed_args>>::from_term(env, argv[I])...);
+        else
+            return fn(type_cast<std::tuple_element_t<I, decayed_args>>::from_term(env, argv[I])...);
     }
 
     template <func_type fn>
@@ -1790,7 +1856,7 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
             static_assert(
                 func_traits::all_args_yield_safe(),
                 "generator function arguments must be fully owned across suspension; "
-                "string_view, binary, term, and containers wrapping them "
+                "string_view, binary, term, ErlNifEnv*, pointers, and containers wrapping them "
                 "are not allowed. Specialize expp::is_yield_persistent<T> = std::true_type "
                 "for fully-owned custom decoded types.");
 

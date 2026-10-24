@@ -1,6 +1,7 @@
 #include "expp.hpp"
 #include <atomic>
 #include <memory_resource>
+#include <thread>
 
 using namespace std;
 using namespace expp;
@@ -141,6 +142,8 @@ using gleam_tagged_variant_result =
 
 static_assert(!is_yield_safe<int*>());
 static_assert(!is_yield_safe<std::span<int>>());
+static_assert(!is_yield_safe<ErlNifEnv*>());
+static_assert(is_yield_safe<ErlNifPid>());
 static_assert(is_yield_safe<gleam::option<int>>());
 static_assert(!is_yield_safe<gleam::option<string_view>>());
 static_assert(is_yield_safe<gleam::case_<"found", int, string>>());
@@ -449,6 +452,28 @@ term term_identity(term t)
 }
 
 
+ErlNifPid pid_identity(ErlNifPid pid)
+{
+    return pid;
+}
+
+
+bool process_alive(ErlNifEnv* env, ErlNifPid pid)
+{
+    return enif_is_process_alive(env, &pid);
+}
+
+
+// Sends from the NIF's own thread, then from a thread the VM didn't create.
+pair<bool, bool> send_twice(ErlNifEnv* env, ErlNifPid pid, string msg)
+{
+    const bool from_nif = expp::send(env, pid, pair{"from_nif"_atom, msg});
+    bool from_thread = false;
+    std::thread([&] { from_thread = expp::send(nullptr, pid, pair{"from_thread"_atom, msg}); }).join();
+    return {from_nif, from_thread};
+}
+
+
 int8_t int8_identity(int8_t x)
 {
     return x;
@@ -699,6 +724,9 @@ MODULE(
     def(dirty_cpu_test, DirtyFlags::DirtyCpu),
     def(binary_identity, DirtyFlags::NotDirty),
     def(term_identity, DirtyFlags::NotDirty),
+    def(pid_identity, DirtyFlags::NotDirty),
+    def(process_alive, DirtyFlags::NotDirty),
+    def(send_twice, DirtyFlags::NotDirty),
     def(raise_runtime_error_test, DirtyFlags::NotDirty),
     def(int8_identity, DirtyFlags::NotDirty),
     def(uint8_identity, DirtyFlags::NotDirty),

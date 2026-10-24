@@ -13,6 +13,7 @@ FILES=(
     "resource.hpp"
     "casts.hpp"
     "ext_types.hpp"
+    "process.hpp"
     "stl.hpp"
     "gleam.hpp"
     "yielding.hpp"

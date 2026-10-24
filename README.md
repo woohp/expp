@@ -304,6 +304,7 @@ Types convert automatically between C++ and Erlang/Elixir:
 | `std::variant<T...>`             | value of whichever variant matches |
 | `std::vector<std::byte>` / `std::vector<int8_t>` / `std::vector<char>` | binary |
 | `expp::resource<T>`              | reference                 |
+| `ErlNifPid`                      | local pid                 |
 | `expp::term`                     | raw `ERL_NIF_TERM` passthrough |
 
 Nested containers (e.g. `vector<vector<int>>`, `map<string, vector<int>>`) work recursively. Strings, vectors, and maps
@@ -396,6 +397,32 @@ int divide(int a, int b)
     return a / b;
 }
 ```
+
+---
+
+## Processes and Messages
+
+A NIF can take the caller's `ErlNifEnv*` as its first parameter, for calling `enif_*` functions directly. It doesn't
+count toward the NIF's arity:
+
+```cpp
+bool process_alive(ErlNifEnv* env, ErlNifPid pid)  // MyMod.process_alive(pid)
+{
+    return enif_is_process_alive(env, &pid);
+}
+```
+
+`expp::send(caller_env, pid, msg)` converts `msg` like a return value and sends it, returning `false` if the process
+isn't alive. Pass the NIF's env when sending from a NIF, or `nullptr` from a thread you created:
+
+```cpp
+void compute_async(ErlNifPid reply_to, int n)
+{
+    std::thread([=] { expp::send(nullptr, reply_to, std::pair{"result"_atom, n * 2}); }).detach();
+}
+```
+
+Yielding NIFs can't take the env, since each step runs with a different one.
 
 ---
 
