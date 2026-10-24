@@ -87,6 +87,7 @@ Conversions are BEAM-term based and work across Erlang, Elixir, and Gleam surfac
 - maps ↔ `std::map<K,V>` / `std::unordered_map<K,V>`
 - tuples ↔ `std::pair<X,Y>` / `std::tuple<T...>`
 - `nil | value` ↔ `std::optional<T>`
+- `nil` ↔ `std::monostate`
 - `{ok, value} | {error, reason}` ↔ `std::expected<T,E>`
 - `ok | {error, reason}` ↔ `std::expected<void,E>`
 - resources ↔ `expp::resource<T>`
@@ -100,7 +101,7 @@ Conversions are BEAM-term based and work across Erlang, Elixir, and Gleam surfac
 - Use `expp::gleam::option<T>` for Gleam `Option(T)`: `none | {some, value}`.
 - Keep `std::optional<T>` as the existing `nil | value` shape.
 - Use `std::expected<T,E>` for Gleam `Result(T,E)`: `{ok, value} | {error, reason}`.
-- `std::expected<void,E>` encodes success as bare `ok`, not Gleam's `Ok(Nil)` (`{ok, nil}`).
+- `std::expected<void,E>` encodes success as bare `ok`; use `std::expected<std::monostate,E>` for Gleam `Result(Nil,E)` (`{ok, nil}`).
 - Use `expp::gleam::make_case<"tag">(...)` to construct Gleam custom-type constructor tuples like `{tag, ...}`.
 - Use `expp::gleam::case_<"tag", ...>` when declaring a `std::variant` that can return multiple Gleam constructors.
 - Do not add permissive bool/int coercions. Gleam `Bool` maps to C++ `bool`, not `int`.

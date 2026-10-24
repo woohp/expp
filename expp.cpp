@@ -183,6 +183,18 @@ std::expected<void, int> expected_void_negate(std::expected<void, int> result)
 static_assert(is_yield_safe<std::expected<void, string>>());
 
 
+// Gleam's Result(Nil, Int).
+std::expected<std::monostate, int> expected_nil_negate(std::expected<std::monostate, int> result)
+{
+    if (result)
+        return std::monostate{};
+    return std::unexpected(-result.error());
+}
+
+
+static_assert(is_yield_safe<std::expected<std::monostate, string>>());
+
+
 std::expected<int, int> get_expected(int i)
 {
     if (i >= 0)
@@ -757,6 +769,7 @@ MODULE(
     def(expected_arguments, DirtyFlags::NotDirty),
     def(get_expected, DirtyFlags::NotDirty),
     def(expected_void_negate, DirtyFlags::NotDirty),
+    def(expected_nil_negate, DirtyFlags::NotDirty),
     def(get_expected_stringview_error, DirtyFlags::NotDirty),
     def(atom_arguments, DirtyFlags::NotDirty),
     def(atom_returns, DirtyFlags::NotDirty),

@@ -160,6 +160,12 @@ defmodule MyModTest do
     end
   end
 
+  test "std::monostate is nil, so expected<monostate, E> is Gleam's Result(Nil, e)" do
+    assert MyMod.expected_nil_negate({:ok, nil}) == {:ok, nil}
+    assert MyMod.expected_nil_negate({:error, 5}) == {:error, -5}
+    assert_raise ArgumentError, ~r/expected nil/, fn -> MyMod.expected_nil_negate({:ok, 1}) end
+  end
+
   test "expected returns binary error message" do
     assert MyMod.get_expected_stringview_error(-5) == {:error, "my bad..."}
   end

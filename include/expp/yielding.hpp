@@ -31,6 +31,11 @@ struct is_yield_persistent<ErlNifPid> : std::true_type
 {};
 
 
+template <>
+struct is_yield_persistent<std::monostate> : std::true_type
+{};
+
+
 template <detail::fixed_string Tag, typename... Args>
 struct is_yield_persistent<gleam::case_<Tag, Args...>> : std::bool_constant<(is_yield_safe<Args>() && ...)>
 {};
