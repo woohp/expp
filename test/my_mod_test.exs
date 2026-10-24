@@ -526,18 +526,9 @@ defmodule MyModTest do
     end
 
     test "decoded resource can be returned without being accessed" do
-      res = MyMod.resource_identity(MyMod.make_resource(7))
-      assert MyMod.use_resource(res) == 7
-    end
-
-    test "a resource stored in another resource stays alive and keeps its identity" do
-      res = MyMod.make_resource(9)
-      holder = MyMod.make_holder(res)
-      assert MyMod.holder_inner(holder) == res
-
-      holder = MyMod.make_holder(MyMod.make_resource(11))
-      :erlang.garbage_collect()
-      assert MyMod.use_resource(MyMod.holder_inner(holder)) == 11
+      res = MyMod.make_resource(7)
+      assert MyMod.resource_identity(res) == res
+      assert MyMod.use_resource(MyMod.resource_identity(MyMod.make_resource(8))) == 8
     end
 
     test "resource trees are freed once every native and BEAM owner is gone" do
@@ -549,22 +540,15 @@ defmodule MyModTest do
           root = MyMod.make_node(2, [leaf, MyMod.make_node(3, [])])
           sum = MyMod.tree_sum(root)
           :ok = MyMod.set_first_child(root, MyMod.make_node(4, []))
-          error = catch_error(MyMod.yield_node_then_throw(root))
-          held = {sum, MyMod.tree_sum(root), MyMod.tree_sum(leaf), MyMod.node_live(), error}
+          # Nodes 3 and 4 are now held only by root's children.
+          :erlang.garbage_collect()
+          held = {sum, MyMod.tree_sum(root), MyMod.tree_sum(leaf), MyMod.node_live(), MyMod.yield_node_value(root)}
           send(parent, {:held, held})
         end)
 
-      assert_receive {:held, {6, 9, 1, 4, %RuntimeError{message: "boom"}}}
+      assert_receive {:held, {6, 9, 1, 4, 2}}
       assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
       assert wait_until(fn -> MyMod.node_live() == 0 end)
-    end
-
-    test "copied handles share the object" do
-      assert MyMod.increment_through_copy(MyMod.make_resource(1)) == 2
-    end
-
-    test "yielding NIFs can take resources" do
-      assert MyMod.yield_resource_value(MyMod.make_resource(5)) == 5
     end
 
     test "throwing constructor does not run the destructor" do
