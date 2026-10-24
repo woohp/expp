@@ -503,6 +503,10 @@ inline void open_resource_types(ErlNifEnv* env)
 }  // namespace detail
 
 
+template <typename T>
+struct resource_binary;
+
+
 // A reference-counted handle to a NIF resource, like std::shared_ptr but sharing the
 // VM's count: each handle holds one reference, so handles can be copied, stored in
 // other objects, and kept across calls. T lives in the resource memory, so returning
@@ -521,6 +525,7 @@ class resource
     void* objp;
 
     friend struct type_cast<resource<T>>;
+    friend struct type_cast<resource_binary<T>>;
 
     // Adopts a reference the caller already holds.
     explicit resource(void* objp) :
@@ -601,6 +606,22 @@ private:
     [[gnu::visibility("hidden")]] static inline const bool registered =
         (detail::resource_registrations().push_back({&resource_type, typeid(T).name(), destructor}), true);
 };
+
+
+// A binary whose bytes live in a resource, e.g. a buffer it owns, so returning it doesn't
+// copy them. The binary keeps the resource alive, and the bytes must stay valid and
+// unchanged for as long as the resource lives.
+template <typename T>
+struct resource_binary
+{
+    resource<T> owner;
+    const void* data;
+    std::size_t size;
+};
+
+
+template <typename T>
+resource_binary(resource<T>, const void*, std::size_t) -> resource_binary<T>;
 }  // namespace expp
 
 // --- casts.hpp ---
@@ -1000,6 +1021,16 @@ struct type_cast<resource<T>>
     {
         // The term holds its own reference; res still releases its own when destroyed.
         return enif_make_resource(env, res.objp);
+    }
+};
+
+
+template <typename T>
+struct type_cast<resource_binary<T>>
+{
+    static ERL_NIF_TERM to_term(ErlNifEnv* env, const resource_binary<T>& b) noexcept
+    {
+        return enif_make_resource_binary(env, b.owner.objp, b.data, b.size);
     }
 };
 }  // namespace expp

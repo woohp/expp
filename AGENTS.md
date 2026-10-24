@@ -89,6 +89,7 @@ Conversions are BEAM-term based and work across Erlang, Elixir, and Gleam surfac
 - `nil | value` ↔ `std::optional<T>`
 - `{ok, value} | {error, reason}` ↔ `std::expected<T,E>`
 - resources ↔ `expp::resource<T>`
+- `expp::resource_binary{res, data, size}` → binary over bytes the resource owns, without copying (return only)
 - local pids ↔ `ErlNifPid`; `expp::send(caller_env, pid, msg)` sends a converted message
 - raw terms ↔ `expp::term`
 
