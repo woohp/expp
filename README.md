@@ -432,9 +432,9 @@ from an argument, keeps the resource alive, so handles can be copied, stored in 
 resources), and used in yielding NIFs. Returning the same object again gives the same Elixir reference. `T` may be
 incomplete where a handle is only declared, so a type can hold handles to its own type (e.g. tree children).
 
-Two caveats, as with `std::shared_ptr`: the reference count is thread-safe but access to `T` is not, so guard shared
-mutable state yourself; and a cycle of handles is never freed, so back-pointers (e.g. child to parent) must not be
-`resource<T>` handles.
+Two caveats, as with `std::shared_ptr`: the reference count is thread-safe but access to `T` is not, including handles
+stored in `T` (reassigning one is a write), so guard shared mutable state yourself; and a cycle of handles is never
+freed, so back-pointers (e.g. child to parent) must not be `resource<T>` handles.
 
 `alloc(args...)` constructs `T(args...)` with parentheses, like `std::make_unique`, so aggregates work and
 `alloc(3, 0)` for a `std::vector<int>` makes three zeros.
