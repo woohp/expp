@@ -88,11 +88,7 @@ public:
     {
         if constexpr (is_byte_v<T>)
         {
-            ErlNifBinary binary_info;
-            if (!enif_alloc_binary(items.size(), &binary_info))
-                throw std::bad_alloc{};
-            std::copy_n(reinterpret_cast<const unsigned char*>(items.data()), items.size(), binary_info.data);
-            return enif_make_binary(env, &binary_info);
+            return detail::make_new_binary(env, items.data(), items.size());
         }
         else
         {

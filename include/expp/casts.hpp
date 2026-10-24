@@ -62,6 +62,21 @@ inline std::string format_term(ERL_NIF_TERM term)
 }
 
 
+namespace detail
+{
+// Copies bytes into a new binary term; small binaries live on the process heap.
+inline ERL_NIF_TERM make_new_binary(ErlNifEnv* env, const void* data, std::size_t size)
+{
+    ERL_NIF_TERM term;
+    unsigned char* buf = enif_make_new_binary(env, size, &term);
+    if (!buf)
+        throw std::bad_alloc{};
+    std::copy_n(static_cast<const unsigned char*>(data), size, buf);
+    return term;
+}
+}  // namespace detail
+
+
 template <std::integral T>
 struct type_cast<T>
 {
@@ -127,11 +142,7 @@ struct type_cast<std::string_view>
 
     static ERL_NIF_TERM to_term(ErlNifEnv* env, const std::string_view s)
     {
-        ErlNifBinary binary_info;
-        if (!enif_alloc_binary(s.size(), &binary_info))
-            throw std::bad_alloc{};
-        std::copy_n(s.data(), s.size(), binary_info.data);
-        return enif_make_binary(env, &binary_info);
+        return detail::make_new_binary(env, s.data(), s.size());
     }
 };
 
