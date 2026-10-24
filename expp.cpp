@@ -378,6 +378,18 @@ int node_live()
 }
 
 
+// Never defined: handles to an opaque type can still be copied, moved, assigned, released,
+// and encoded. Compile-only.
+struct Opaque;
+
+ERL_NIF_TERM opaque_handle_ops(ErlNifEnv* env, resource<Opaque> a, resource<Opaque>& b)
+{
+    auto copy = a;
+    b = std::move(copy);
+    return type_cast<resource<Opaque>>::to_term(env, b);
+}
+
+
 // Copies share the object: a write through one handle is visible through the other.
 int increment_through_copy(resource<MyResource> res)
 {
