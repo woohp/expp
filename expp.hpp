@@ -481,13 +481,16 @@ class resource
     // alloc, the destructor callback finds it empty and skips ~T().
     using slot = std::optional<T>;
 
-    slot* objp;
+    // The resource memory, which holds a slot. Kept as void* so passing it to enif_*
+    // functions doesn't trigger argument-dependent lookup on std::optional<T>, which
+    // would require T to be complete.
+    void* objp;
 
     friend struct type_cast<resource<T>>;
 
     // Adopts a reference the caller already holds.
     explicit resource(void* objp) :
-        objp(static_cast<slot*>(objp))
+        objp(objp)
     {}
 
 public:
@@ -518,7 +521,7 @@ public:
 
     T& get() const noexcept
     {
-        return **objp;
+        return **static_cast<slot*>(objp);
     }
 
     T& operator*() const noexcept
@@ -546,7 +549,7 @@ public:
 
         // Owning the resource first releases it if the constructor throws.
         resource<T> res{new (buf) slot};
-        res.objp->emplace(std::forward<Args>(args)...);
+        static_cast<slot*>(res.objp)->emplace(std::forward<Args>(args)...);
         return res;
     }
 
