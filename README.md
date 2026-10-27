@@ -1,17 +1,21 @@
 # expp — Erlang/Elixir NIF Library
 
-Header-only C++23 library for writing native Erlang NIFs. Zero dependencies beyond the Erlang VM headers (OTP 26 or later) and a C++23 compiler. Supports Linux and macOS; Windows is not supported.
+Header-only C++26 library for writing native Erlang NIFs. Zero dependencies beyond the Erlang VM headers (OTP 26 or later) and a compiler with C++26 static reflection: GCC 16 or later, built with `-std=c++26 -freflection`. Clang and Apple Clang don't support reflection yet, so on macOS use GCC from Homebrew. Supports Linux and macOS; Windows is not supported.
 
 ```cpp
 #include "expp/expp.hpp"
 
-int add(int a, int b) { return a + b; }
+using namespace expp;
 
-MODULE(
-    Elixir.MyMod,
-    nullptr,
-    nullptr,
-    def(add, expp::DirtyFlags::NotDirty))
+namespace my_mod
+{
+[[=nif::not_dirty]] int add(int a, int b) { return a + b; }
+}
+
+extern "C" [[gnu::visibility("default")]] ErlNifEntry* nif_init()
+{
+    return nif_entry<^^my_mod>("Elixir.MyMod");
+}
 ```
 
 ```elixir
@@ -57,16 +61,21 @@ Write your NIF in `src/my_nif.cpp`:
 ```cpp
 #include "expp/expp.hpp"
 
+using namespace expp;
+
+namespace my_nif
+{
+[[=nif::not_dirty]]
 int add(int a, int b)
 {
     return a + b;
 }
+}  // namespace my_nif
 
-MODULE(
-    Elixir.MyNif,
-    nullptr,
-    nullptr,
-    def(add, expp::DirtyFlags::NotDirty))
+extern "C" [[gnu::visibility("default")]] ErlNifEntry* nif_init()
+{
+    return nif_entry<^^my_nif>("Elixir.MyNif");
+}
 ```
 
 Create a `Makefile` that builds the shared library:
@@ -83,7 +92,7 @@ priv:
 	@mkdir -p priv
 
 priv/my_nif.so: priv src/my_nif.cpp
-	$(CXX) -I$(ERTS_INCLUDE_DIR) -I$(EXPP_INCLUDE_DIR) -std=c++23 -fPIC -fvisibility=hidden $(NIF_LDFLAGS) -o $@ src/my_nif.cpp
+	$(CXX) -I$(ERTS_INCLUDE_DIR) -I$(EXPP_INCLUDE_DIR) -std=c++26 -freflection -fPIC -fvisibility=hidden $(NIF_LDFLAGS) -o $@ src/my_nif.cpp
 
 clean:
 	$(RM) priv/my_nif.so
@@ -116,7 +125,7 @@ The shared library is compiled to `priv/my_nif.so` during `mix compile` and load
 
 ## Gleam Quickstart
 
-expp works with Gleam through a small Erlang loader module. Use an Erlang module name in `MODULE(...)`, not an Elixir module name.
+expp works with Gleam through a small Erlang loader module. Pass an Erlang module name to `nif_entry`, not an Elixir module name.
 
 Create a Gleam project and the native source directories:
 
@@ -140,16 +149,21 @@ Write `c_src/my_nif.cpp`:
 
 using namespace expp;
 
+namespace my_nif
+{
+[[=nif::not_dirty]]
 int add(int a, int b)
 {
     return a + b;
 }
 
+[[=nif::not_dirty]]
 bool negate(bool value)
 {
     return !value;
 }
 
+[[=nif::not_dirty]]
 std::expected<int, std::string> checked_divide(int a, int b)
 {
     if (b == 0)
@@ -157,6 +171,7 @@ std::expected<int, std::string> checked_divide(int a, int b)
     return a / b;
 }
 
+[[=nif::not_dirty]]
 gleam::option<int> positive(int value)
 {
     if (value <= 0)
@@ -164,20 +179,17 @@ gleam::option<int> positive(int value)
     return value;
 }
 
+[[=nif::not_dirty]]
 auto image_size(int width, int height)
 {
     return gleam::make_case<"image_size">(width, height);
 }
+}  // namespace my_nif
 
-MODULE(
-    my_nif_ffi,
-    nullptr,
-    nullptr,
-    def(add, DirtyFlags::NotDirty),
-    def(negate, DirtyFlags::NotDirty),
-    def(checked_divide, DirtyFlags::NotDirty),
-    def(positive, DirtyFlags::NotDirty),
-    def(image_size, DirtyFlags::NotDirty))
+extern "C" [[gnu::visibility("default")]] ErlNifEntry* nif_init()
+{
+    return nif_entry<^^my_nif>("my_nif_ffi");
+}
 ```
 
 Create `Makefile`. Gleam dependencies are checked out under `build/packages`, so the default `EXPP_INCLUDE_DIR` points at the `include` directory of expp's package:
@@ -195,7 +207,7 @@ endif
 
 priv/my_nif.$(SO_EXT): c_src/my_nif.cpp
 	@mkdir -p priv
-	$(CXX) -I$(ERTS_INCLUDE_DIR) -I$(EXPP_INCLUDE_DIR) -std=c++23 -fPIC -fvisibility=hidden -shared $(LDFLAGS_NIF) -o $@ $<
+	$(CXX) -I$(ERTS_INCLUDE_DIR) -I$(EXPP_INCLUDE_DIR) -std=c++26 -freflection -fPIC -fvisibility=hidden -shared $(LDFLAGS_NIF) -o $@ $<
 
 clean:
 	$(RM) priv/my_nif.$(SO_EXT)
@@ -365,22 +377,31 @@ Comparison works against `std::string_view` and other `atom` values. Atom names 
 
 ## NIF Registration
 
-Use `def(fn, flags)` or `def(fn, "elixir_name", flags)` inside the `MODULE(...)` macro. The dirty flag is required, so every NIF states which scheduler it runs on. Arity is derived automatically from the C++ function signature via `function_traits` — you never specify it manually.
+Annotate each NIF with `[[=nif::not_dirty]]`, `[[=nif::dirty_cpu]]`, or `[[=nif::dirty_io]]`, and return
+`nif_entry<^^ns, load, unload>(module_name)` from the library's `nif_init`. `nif_entry` exports every annotated function
+declared directly in namespace `ns` (not in nested namespaces). There is no default scheduler, so every NIF states which
+scheduler it runs on. Arity is derived from the C++ signature — you never specify it manually.
 
 ```cpp
-MODULE(
-    Elixir.MyMod,
-    nullptr,                       // load callback (or nullptr)
-    nullptr,                       // unload callback (or nullptr)
-    def(add, DirtyFlags::NotDirty),
-    def(dirty_cpu_fn, DirtyFlags::DirtyCpu),
-    def(dirty_io_fn, DirtyFlags::DirtyIO),
-    def(fn, "custom_name", DirtyFlags::NotDirty), )
+namespace my_mod
+{
+[[=nif::not_dirty]] int add(int a, int b);
+[[=nif::dirty_cpu]] int dirty_cpu_fn(int x);
+[[=nif::dirty_io]] int dirty_io_fn(int x);
+[[=nif::not_dirty.named("custom_name")]] int fn(int x);
+[[=nif::not_dirty, =nif::dirty_cpu.named("crunch_dirty")]] int crunch(int x);
+}
+
+extern "C" [[gnu::visibility("default")]] ErlNifEntry* nif_init()
+{
+    return nif_entry<^^my_mod, load, unload>("Elixir.MyMod");  // load and unload are optional
+}
 ```
 
-By default the NIF is named after the C++ function. Pass a string as the second argument to override (`def(fn, "elixir_name", ...)`).
+By default the NIF is named after the C++ function; `.named("elixir_name")` overrides it. Repeat the annotation to export one
+function under several names. Exporting two NIFs with the same name and arity is a compile error.
 
-Resource types need no setup: `MODULE` opens them before calling your `load` callback. Hot upgrades aren't supported,
+Resource types need no setup: `nif_entry` opens them before calling your `load` callback. Hot upgrades aren't supported,
 so reloading a module whose NIF library is still loaded fails.
 
 If `load` throws, or a resource type fails to open, the message is printed to stderr and `:erlang.load_nif/2`
@@ -437,9 +458,9 @@ Yielding NIFs can't take the env, since each step runs with a different one.
 ## Dirty NIFs
 
 ```cpp
-def(long_computation, DirtyFlags::DirtyCpu)
-def(blocking_io,     DirtyFlags::DirtyIO)
-def(fast_op,         DirtyFlags::NotDirty)
+[[=nif::dirty_cpu]] int long_computation(int x);
+[[=nif::dirty_io]] std::string blocking_io(std::string path);
+[[=nif::not_dirty]] int fast_op(int x);
 ```
 
 ---

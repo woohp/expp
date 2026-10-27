@@ -1,6 +1,6 @@
 # expp - BEAM NIF Library
 
-Header-only C++23 library for creating Erlang/Elixir/Gleam NIFs.
+Header-only C++26 library for creating Erlang/Elixir/Gleam NIFs.
 
 ## Architecture
 
@@ -36,7 +36,7 @@ gleam check
 
 ## C++ Guidelines
 
-- Use C++23.
+- Use C++26 with static reflection (`-std=c++26 -freflection`, GCC 16+). Clang has no reflection support yet; NIF registration depends on it, so there is no C++23 fallback.
 - Linux and macOS only. Windows/MSVC is permanently out of scope; don't add workarounds or design around it.
 - Prefer modern standard types: `std::optional`, `std::expected`, `std::variant`, `std::tuple`, `std::vector`.
 - Preserve existing style; NIF/example function names are mostly `snake_case`.
@@ -54,23 +54,25 @@ Basic NIF shape:
 
 using namespace expp;
 
+namespace my_mod
+{
+[[=nif::not_dirty]]
 int add(int a, int b)
 {
     return a + b;
 }
+}  // namespace my_mod
 
-MODULE(
-    Elixir.MyMod,
-    nullptr,
-    nullptr,
-    def(add, DirtyFlags::NotDirty))
+extern "C" [[gnu::visibility("default")]] ErlNifEntry* nif_init()
+{
+    return nif_entry<^^my_mod>("Elixir.MyMod");  // optionally nif_entry<^^my_mod, load, unload>
+}
 ```
 
-For Erlang/Gleam loaders, use a normal Erlang module atom instead of an Elixir module name:
-
-```cpp
-MODULE(my_nif_ffi, nullptr, nullptr, def(add, DirtyFlags::NotDirty))
-```
+- `nif_entry` exports annotated functions declared directly in the given namespace only, not nested ones.
+- Annotate with `[[=nif::not_dirty]]`, `nif::dirty_cpu`, or `nif::dirty_io`; rename with `[[=nif::not_dirty.named("name")]]`; repeat the annotation to export one function under several names.
+- `nif_init` can't be generated: reflection can't declare a named `extern "C"` symbol, so users write it.
+- For Erlang/Gleam loaders, pass a normal Erlang module name (`"my_nif_ffi"`) instead of an Elixir module name.
 
 ## Type Conversion Notes
 

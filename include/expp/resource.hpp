@@ -34,7 +34,7 @@ struct resource_registration
 }
 
 
-// Opens every registered resource type; MODULE's load callback calls this.
+// Opens every registered resource type; nif_entry's load callback calls this.
 inline void open_resource_types(ErlNifEnv* env)
 {
     for (const auto& [type, name, destructor] : resource_registrations())
@@ -121,10 +121,10 @@ public:
         requires std::constructible_from<T, Args...>
     static resource<T> alloc(Args&&... args)
     {
-        // Naming registered instantiates it, which registers T for MODULE's load callback.
+        // Naming registered instantiates it, which registers T for nif_entry's load callback.
         (void)resource<T>::registered;
         if (!resource<T>::resource_type)
-            throw std::runtime_error("NIF resource type not opened; define the NIF module with MODULE");
+            throw std::runtime_error("NIF resource type not opened; define the NIF module with expp::nif_entry");
 
         void* buf = enif_alloc_resource(resource<T>::resource_type, sizeof(slot));
         if (!buf)

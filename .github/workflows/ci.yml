@@ -7,11 +7,18 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: elixir:latest
+    # expp needs GCC 16 for C++26 reflection; Erlang and Elixir come from Debian.
+    container: gcc:16
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Install Erlang and Elixir
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends erlang-dev elixir
+          mix local.hex --force
 
       - name: Install dependencies
         run: mix deps.get
