@@ -7,7 +7,11 @@ using namespace std;
 using namespace expp;
 
 
-vector<int> vector_times_int(vector<int> v, int i)
+namespace my_mod
+{
+
+
+[[= nif::not_dirty]] vector<int> vector_times_int(vector<int> v, int i)
 {
     for (auto& x : v)
         x *= i;
@@ -15,14 +19,14 @@ vector<int> vector_times_int(vector<int> v, int i)
 }
 
 
-vector<bool> bool_vector_negate(vector<bool> v)
+[[= nif::not_dirty]] vector<bool> bool_vector_negate(vector<bool> v)
 {
     v.flip();
     return v;
 }
 
 
-vector<char> vector_char_plus_one(vector<char> v)
+[[= nif::not_dirty]] vector<char> vector_char_plus_one(vector<char> v)
 {
     for (auto& c : v)
         c++;
@@ -30,7 +34,7 @@ vector<char> vector_char_plus_one(vector<char> v)
 }
 
 
-vector<int8_t> vector_int8_plus_one(vector<int8_t> v)
+[[= nif::not_dirty]] vector<int8_t> vector_int8_plus_one(vector<int8_t> v)
 {
     for (auto& c : v)
         c++;
@@ -38,7 +42,7 @@ vector<int8_t> vector_int8_plus_one(vector<int8_t> v)
 }
 
 
-unordered_map<int, int> times2(unordered_map<int, int> m)
+[[= nif::not_dirty]] unordered_map<int, int> times2(unordered_map<int, int> m)
 {
     for (auto& item : m)
         item.second *= item.first;
@@ -46,19 +50,19 @@ unordered_map<int, int> times2(unordered_map<int, int> m)
 }
 
 
-tuple<int, int, int> times4(tuple<int, int, int> m)
+[[= nif::not_dirty]] tuple<int, int, int> times4(tuple<int, int, int> m)
 {
     return make_tuple(get<0>(m) * 4, get<1>(m) * 4, get<2>(m) * 4);
 }
 
 
-std::expected<int, string> times5(int i)
+[[= nif::not_dirty]] std::expected<int, string> times5(int i)
 {
     return i * 5;
 }
 
 
-variant<int, string> variant_int_and_string(variant<int, string> v)
+[[= nif::not_dirty]] variant<int, string> variant_int_and_string(variant<int, string> v)
 {
     return std::visit(
         [](auto&& arg) {
@@ -72,25 +76,25 @@ variant<int, string> variant_int_and_string(variant<int, string> v)
 }
 
 
-string_view stringview_identity(string_view s)
+[[= nif::not_dirty]] string_view stringview_identity(string_view s)
 {
     return s;
 }
 
 
-int bool_arguments(bool b)
+[[= nif::not_dirty]] int bool_arguments(bool b)
 {
     return b ? 3 : 5;
 }
 
 
-bool bool_returns(int i)
+[[= nif::not_dirty]] bool bool_returns(int i)
 {
     return i < 0;
 }
 
 
-int optional_arguments(optional<int> i)
+[[= nif::not_dirty]] int optional_arguments(optional<int> i)
 {
     if (i)
         return *i;
@@ -99,7 +103,7 @@ int optional_arguments(optional<int> i)
 }
 
 
-int optional_bool_arguments(optional<bool> b)
+[[= nif::not_dirty]] int optional_bool_arguments(optional<bool> b)
 {
     if (!b)
         return -1;
@@ -107,7 +111,7 @@ int optional_bool_arguments(optional<bool> b)
 }
 
 
-optional<int> optional_returns(int i)
+[[= nif::not_dirty]] optional<int> optional_returns(int i)
 {
     if (i < 0)
         return nullopt;
@@ -115,7 +119,7 @@ optional<int> optional_returns(int i)
 }
 
 
-int gleam_option_arguments(gleam::option<int> i)
+[[= nif::not_dirty]] int gleam_option_arguments(gleam::option<int> i)
 {
     if (i)
         return *i;
@@ -123,7 +127,7 @@ int gleam_option_arguments(gleam::option<int> i)
 }
 
 
-gleam::option<int> gleam_option_returns(int i)
+[[= nif::not_dirty]] gleam::option<int> gleam_option_returns(int i)
 {
     if (i < 0)
         return nullopt;
@@ -131,7 +135,7 @@ gleam::option<int> gleam_option_returns(int i)
 }
 
 
-auto gleam_tagged_image(int width, int height)
+[[= nif::not_dirty]] auto gleam_tagged_image(int width, int height)
 {
     return gleam::make_case<"image">(width, height);
 }
@@ -154,7 +158,7 @@ static_assert(!is_yield_safe<std::expected<int, string_view>>());
 static_assert(!is_yield_safe<std::expected<string_view, int>>());
 
 
-gleam_tagged_variant_result gleam_tagged_variant(int id)
+[[= nif::not_dirty]] gleam_tagged_variant_result gleam_tagged_variant(int id)
 {
     if (id > 0)
         return gleam::make_case<"found">(id, string{"ok"});
@@ -164,7 +168,7 @@ gleam_tagged_variant_result gleam_tagged_variant(int id)
 }
 
 
-std::expected<int, int> expected_arguments(std::expected<int, int> result)
+[[= nif::not_dirty]] std::expected<int, int> expected_arguments(std::expected<int, int> result)
 {
     if (result)
         return *result * 2;
@@ -172,7 +176,7 @@ std::expected<int, int> expected_arguments(std::expected<int, int> result)
 }
 
 
-std::expected<void, int> expected_void_negate(std::expected<void, int> result)
+[[= nif::not_dirty]] std::expected<void, int> expected_void_negate(std::expected<void, int> result)
 {
     if (result)
         return {};
@@ -184,7 +188,7 @@ static_assert(is_yield_safe<std::expected<void, string>>());
 
 
 // Gleam's Result(Nil, Int).
-std::expected<std::monostate, int> expected_nil_negate(std::expected<std::monostate, int> result)
+[[= nif::not_dirty]] std::expected<std::monostate, int> expected_nil_negate(std::expected<std::monostate, int> result)
 {
     if (result)
         return std::monostate{};
@@ -195,7 +199,7 @@ std::expected<std::monostate, int> expected_nil_negate(std::expected<std::monost
 static_assert(is_yield_safe<std::expected<std::monostate, string>>());
 
 
-std::expected<int, int> get_expected(int i)
+[[= nif::not_dirty]] std::expected<int, int> get_expected(int i)
 {
     if (i >= 0)
         return 123;
@@ -204,7 +208,7 @@ std::expected<int, int> get_expected(int i)
 }
 
 
-std::expected<int, std::string_view> get_expected_stringview_error(int i)
+[[= nif::not_dirty]] std::expected<int, std::string_view> get_expected_stringview_error(int i)
 {
     if (i >= 0)
         return 123;
@@ -213,37 +217,37 @@ std::expected<int, std::string_view> get_expected_stringview_error(int i)
 }
 
 
-int atom_arguments(atom a)
+[[= nif::not_dirty]] int atom_arguments(atom a)
 {
     return a == "foo" ? 1 : -1;
 }
 
 
-atom atom_returns(int i)
+[[= nif::not_dirty]] atom atom_returns(int i)
 {
     return i >= 0 ? "foo"_atom : "bar"_atom;
 }
 
 
-atom atom_identity(atom a)
+[[= nif::not_dirty]] atom atom_identity(atom a)
 {
     return a;
 }
 
 
-tuple<int, atom> tuple_with_invalid_atom()
+[[= nif::not_dirty]] tuple<int, atom> tuple_with_invalid_atom()
 {
     return make_tuple(1, "\xff"_atom);
 }
 
 
-std::pmr::vector<std::pmr::string> pmr_strings_identity(std::pmr::vector<std::pmr::string> v)
+[[= nif::not_dirty]] std::pmr::vector<std::pmr::string> pmr_strings_identity(std::pmr::vector<std::pmr::string> v)
 {
     return v;
 }
 
 
-vector<int> descending_keys(map<int, int, std::greater<>> m)
+[[= nif::not_dirty]] vector<int> descending_keys(map<int, int, std::greater<>> m)
 {
     vector<int> keys;
     for (const auto& [k, v] : m)
@@ -252,7 +256,7 @@ vector<int> descending_keys(map<int, int, std::greater<>> m)
 }
 
 
-yielding<pair<int, int>> simple_coroutine(int n)
+[[= nif::not_dirty]] yielding<pair<int, int>> simple_coroutine(int n)
 {
     for (int i = 0; i < n; i++)
     {
@@ -264,7 +268,7 @@ yielding<pair<int, int>> simple_coroutine(int n)
 }
 
 
-vector<vector<int>> nested_vector(vector<vector<int>> v)
+[[= nif::not_dirty]] vector<vector<int>> nested_vector(vector<vector<int>> v)
 {
     for (auto& inner : v)
         for (auto& x : inner)
@@ -273,13 +277,13 @@ vector<vector<int>> nested_vector(vector<vector<int>> v)
 }
 
 
-std::map<string, int> ordered_map_test(std::map<string, int> m)
+[[= nif::not_dirty]] std::map<string, int> ordered_map_test(std::map<string, int> m)
 {
     return m;
 }
 
 
-std::map<string, vector<int>> complex_nested_map(std::map<string, vector<int>> m)
+[[= nif::not_dirty]] std::map<string, vector<int>> complex_nested_map(std::map<string, vector<int>> m)
 {
     for (auto& [k, v] : m)
         for (auto& x : v)
@@ -288,7 +292,7 @@ std::map<string, vector<int>> complex_nested_map(std::map<string, vector<int>> m
 }
 
 
-vector<std::byte> byte_vector_test(vector<std::byte> v)
+[[= nif::not_dirty]] vector<std::byte> byte_vector_test(vector<std::byte> v)
 {
     for (auto& b : v)
         b = std::byte{static_cast<unsigned char>(static_cast<unsigned char>(b) + 1)};
@@ -302,13 +306,13 @@ struct MyResource
 };
 
 
-resource<MyResource> make_resource(int i)
+[[= nif::not_dirty]] resource<MyResource> make_resource(int i)
 {
     return resource<MyResource>::alloc(i);
 }
 
 
-resource<MyResource> make_resource_incremented(int i)
+[[= nif::not_dirty]] resource<MyResource> make_resource_incremented(int i)
 {
     auto r = resource<MyResource>::alloc(i);
     r.get().value += 1;
@@ -316,13 +320,13 @@ resource<MyResource> make_resource_incremented(int i)
 }
 
 
-int use_resource(resource<MyResource> res)
+[[= nif::not_dirty]] int use_resource(resource<MyResource> res)
 {
     return res.get().value;
 }
 
 
-resource<MyResource> resource_identity(resource<MyResource> res)
+[[= nif::not_dirty]] resource<MyResource> resource_identity(resource<MyResource> res)
 {
     return res;
 }
@@ -351,13 +355,13 @@ struct Node
 };
 
 
-resource<Node> make_node(int value, vector<resource<Node>> children)
+[[= nif::not_dirty]] resource<Node> make_node(int value, vector<resource<Node>> children)
 {
     return resource<Node>::alloc(value, std::move(children));
 }
 
 
-int tree_sum(resource<Node> node)
+[[= nif::not_dirty]] int tree_sum(resource<Node> node)
 {
     int sum = node->value;
     for (const auto& child : node->children)
@@ -366,20 +370,20 @@ int tree_sum(resource<Node> node)
 }
 
 
-void set_first_child(resource<Node> node, resource<Node> child)
+[[= nif::not_dirty]] void set_first_child(resource<Node> node, resource<Node> child)
 {
     node->children.at(0) = child;
 }
 
 
-yielding<int> yield_node_value(resource<Node> node)
+[[= nif::not_dirty]] yielding<int> yield_node_value(resource<Node> node)
 {
     co_yield nullopt;
     co_yield node->value;
 }
 
 
-int node_live()
+[[= nif::not_dirty]] int node_live()
 {
     return node_live_count;
 }
@@ -406,7 +410,7 @@ struct Buffer
 
 
 // The returned binary alone keeps the buffer alive.
-resource_binary<Buffer> buffer_tail(string bytes, size_t offset)
+[[= nif::not_dirty]] resource_binary<Buffer> buffer_tail(string bytes, size_t offset)
 {
     if (offset > bytes.size())
         throw std::invalid_argument("offset out of range");
@@ -416,7 +420,7 @@ resource_binary<Buffer> buffer_tail(string bytes, size_t offset)
 
 
 // Every chunk views, and keeps alive, the same buffer.
-vector<resource_binary<Buffer>> buffer_chunks(string bytes, size_t chunk_size)
+[[= nif::not_dirty]] vector<resource_binary<Buffer>> buffer_chunks(string bytes, size_t chunk_size)
 {
     if (chunk_size == 0)
         throw std::invalid_argument("chunk_size must be positive");
@@ -433,7 +437,7 @@ static_assert(requires(ErlNifEnv* env, const map<int, resource_binary<Buffer>>& 
 });
 
 
-int buffer_live()
+[[= nif::not_dirty]] int buffer_live()
 {
     return buffer_live_count;
 }
@@ -469,7 +473,7 @@ struct ThrowingResource
 
 
 // Returns how often ~ThrowingResource ran, which must be 0 since construction never succeeds.
-int make_throwing_resource()
+[[= nif::not_dirty]] int make_throwing_resource()
 {
     try
     {
@@ -481,7 +485,7 @@ int make_throwing_resource()
 }
 
 
-int throw_error(int i)
+[[= nif::not_dirty]] int throw_error(int i)
 {
     if (i == 0)
         throw erl_error<string>("some error");
@@ -493,44 +497,44 @@ int throw_error(int i)
 }
 
 
-int dirty_cpu_test(int i)
+[[= nif::dirty_cpu]] int dirty_cpu_test(int i)
 {
     return i * 10;
 }
 
 
-binary binary_identity(binary b)
+[[= nif::not_dirty]] binary binary_identity(binary b)
 {
     return b;
 }
 
 
-void raise_runtime_error_test()
+[[= nif::not_dirty]] void raise_runtime_error_test()
 {
     throw std::runtime_error("this is a runtime error from C++");
 }
 
 
-term term_identity(term t)
+[[= nif::not_dirty]] term term_identity(term t)
 {
     return t;
 }
 
 
-ErlNifPid pid_identity(ErlNifPid pid)
+[[= nif::not_dirty]] ErlNifPid pid_identity(ErlNifPid pid)
 {
     return pid;
 }
 
 
-bool process_alive(ErlNifEnv* env, ErlNifPid pid)
+[[= nif::not_dirty]] bool process_alive(ErlNifEnv* env, ErlNifPid pid)
 {
     return enif_is_process_alive(env, &pid);
 }
 
 
 // Sends from the NIF's own thread, then from a thread the VM didn't create.
-pair<bool, bool> send_twice(ErlNifEnv* env, ErlNifPid pid, term msg)
+[[= nif::not_dirty]] pair<bool, bool> send_twice(ErlNifEnv* env, ErlNifPid pid, term msg)
 {
     const bool from_nif = expp::send(env, pid, pair{"from_nif"_atom, msg});
     bool from_thread = false;
@@ -539,97 +543,97 @@ pair<bool, bool> send_twice(ErlNifEnv* env, ErlNifPid pid, term msg)
 }
 
 
-int8_t int8_identity(int8_t x)
+[[= nif::not_dirty]] int8_t int8_identity(int8_t x)
 {
     return x;
 }
 
 
-uint8_t uint8_identity(uint8_t x)
+[[= nif::not_dirty]] uint8_t uint8_identity(uint8_t x)
 {
     return x;
 }
 
 
-char char_identity(char x)
+[[= nif::not_dirty]] char char_identity(char x)
 {
     return x;
 }
 
 
-int16_t int16_identity(int16_t x)
+[[= nif::not_dirty]] int16_t int16_identity(int16_t x)
 {
     return x;
 }
 
 
-float float_identity(float x)
+[[= nif::not_dirty]] float float_identity(float x)
 {
     return x;
 }
 
 
-multimap<string, int> multimap_test(multimap<string, int> m)
+[[= nif::not_dirty]] multimap<string, int> multimap_test(multimap<string, int> m)
 {
     return m;
 }
 
 
-unordered_multimap<string, int> unordered_multimap_test(unordered_multimap<string, int> m)
+[[= nif::not_dirty]] unordered_multimap<string, int> unordered_multimap_test(unordered_multimap<string, int> m)
 {
     return m;
 }
 
 
-int int_identity(int x)
+[[= nif::not_dirty]] int int_identity(int x)
 {
     return x;
 }
 
 
-uint32_t uint32_identity(uint32_t x)
+[[= nif::not_dirty]] uint32_t uint32_identity(uint32_t x)
 {
     return x;
 }
 
 
-int64_t int64_identity(int64_t x)
+[[= nif::not_dirty]] int64_t int64_identity(int64_t x)
 {
     return x;
 }
 
 
-uint64_t uint64_identity(uint64_t x)
+[[= nif::not_dirty]] uint64_t uint64_identity(uint64_t x)
 {
     return x;
 }
 
 
-double double_identity(double x)
+[[= nif::not_dirty]] double double_identity(double x)
 {
     return x;
 }
 
 
-std::string string_identity(std::string s)
+[[= nif::not_dirty]] std::string string_identity(std::string s)
 {
     return s;
 }
 
 
-int dirty_io_test(int i)
+[[= nif::dirty_io]] int dirty_io_test(int i)
 {
     return i * 100;
 }
 
 
-int named_nif_impl(int x)
+[[= nif::not_dirty.named("named_nif")]] int named_nif_impl(int x)
 {
     return x + 1;
 }
 
 
-yielding<int> yield_values(int n)
+[[= nif::not_dirty]] yielding<int> yield_values(int n)
 {
     for (int i = 0; i < n; i++)
     {
@@ -642,7 +646,7 @@ yielding<int> yield_values(int n)
 
 
 // Returns the scheduler type (enif_thread_type) each step ran on.
-yielding<vector<int>> schedule_on_steps()
+[[ = nif::not_dirty, = nif::dirty_cpu.named("schedule_on_steps_dirty") ]] yielding<vector<int>> schedule_on_steps()
 {
     vector<int> thread_types{enif_thread_type()};
     co_yield schedule_on(DirtyFlags::DirtyCpu);
@@ -653,13 +657,13 @@ yielding<vector<int>> schedule_on_steps()
 }
 
 
-yielding<int> yield_exhaustion()
+[[= nif::not_dirty]] yielding<int> yield_exhaustion()
 {
     co_return;
 }
 
 
-yielding<int> yield_invalid_argument(int n)
+[[= nif::not_dirty]] yielding<int> yield_invalid_argument(int n)
 {
     co_yield nullopt;
     if (n < 0)
@@ -668,11 +672,14 @@ yielding<int> yield_invalid_argument(int n)
 }
 
 
-yielding<int> yield_unknown_exception()
+[[= nif::not_dirty]] yielding<int> yield_unknown_exception()
 {
     co_yield nullopt;
     throw 42;
 }
+
+}  // namespace my_mod
+
 
 struct MyPersistentType
 {
@@ -707,7 +714,9 @@ struct expp::type_cast<MyPersistentType>
 };
 
 
-yielding<MyPersistentType> yield_persistent_type(int n)
+namespace my_mod
+{
+[[= nif::not_dirty]] yielding<MyPersistentType> yield_persistent_type(int n)
 {
     for (int i = 0; i < n; i++)
     {
@@ -730,13 +739,14 @@ int load(ErlNifEnv*, void**, ERL_NIF_TERM)
 }
 
 
-int loaded_value()
+[[= nif::not_dirty]] int loaded_value()
 {
     return load_time_value;
 }
+}  // namespace my_mod
 
 
-// Compile-only: LOAD may be any null value.
+// Compile-only: load may be any null value.
 using load_callback = int (*)(ErlNifEnv*, void**, ERL_NIF_TERM);
 constexpr load_callback null_load = nullptr;
 [[maybe_unused]] constexpr load_callback null_loads[] = {
@@ -744,86 +754,7 @@ constexpr load_callback null_load = nullptr;
 };
 
 
-MODULE(
-    Elixir.MyMod,
-    load,
-    nullptr,
-    def(vector_times_int, DirtyFlags::NotDirty),
-    def(bool_vector_negate, DirtyFlags::NotDirty),
-    def(vector_char_plus_one, DirtyFlags::NotDirty),
-    def(vector_int8_plus_one, DirtyFlags::NotDirty),
-    def(times2, DirtyFlags::NotDirty),
-    def(times4, DirtyFlags::NotDirty),
-    def(times5, DirtyFlags::NotDirty),
-    def(stringview_identity, DirtyFlags::NotDirty),
-    def(variant_int_and_string, DirtyFlags::NotDirty),
-    def(bool_arguments, DirtyFlags::NotDirty),
-    def(bool_returns, DirtyFlags::NotDirty),
-    def(optional_arguments, DirtyFlags::NotDirty),
-    def(optional_bool_arguments, DirtyFlags::NotDirty),
-    def(optional_returns, DirtyFlags::NotDirty),
-    def(gleam_option_arguments, DirtyFlags::NotDirty),
-    def(gleam_option_returns, DirtyFlags::NotDirty),
-    def(gleam_tagged_image, DirtyFlags::NotDirty),
-    def(gleam_tagged_variant, DirtyFlags::NotDirty),
-    def(expected_arguments, DirtyFlags::NotDirty),
-    def(get_expected, DirtyFlags::NotDirty),
-    def(expected_void_negate, DirtyFlags::NotDirty),
-    def(expected_nil_negate, DirtyFlags::NotDirty),
-    def(get_expected_stringview_error, DirtyFlags::NotDirty),
-    def(atom_arguments, DirtyFlags::NotDirty),
-    def(atom_returns, DirtyFlags::NotDirty),
-    def(atom_identity, DirtyFlags::NotDirty),
-    def(tuple_with_invalid_atom, DirtyFlags::NotDirty),
-    def(pmr_strings_identity, DirtyFlags::NotDirty),
-    def(descending_keys, DirtyFlags::NotDirty),
-    def(simple_coroutine, DirtyFlags::NotDirty),
-    def(nested_vector, DirtyFlags::NotDirty),
-    def(ordered_map_test, DirtyFlags::NotDirty),
-    def(complex_nested_map, DirtyFlags::NotDirty),
-    def(byte_vector_test, DirtyFlags::NotDirty),
-    def(make_resource, DirtyFlags::NotDirty),
-    def(make_resource_incremented, DirtyFlags::NotDirty),
-    def(use_resource, DirtyFlags::NotDirty),
-    def(resource_identity, DirtyFlags::NotDirty),
-    def(make_node, DirtyFlags::NotDirty),
-    def(tree_sum, DirtyFlags::NotDirty),
-    def(set_first_child, DirtyFlags::NotDirty),
-    def(yield_node_value, DirtyFlags::NotDirty),
-    def(node_live, DirtyFlags::NotDirty),
-    def(buffer_tail, DirtyFlags::NotDirty),
-    def(buffer_chunks, DirtyFlags::NotDirty),
-    def(buffer_live, DirtyFlags::NotDirty),
-    def(make_throwing_resource, DirtyFlags::NotDirty),
-    def(loaded_value, DirtyFlags::NotDirty),
-    def(throw_error, DirtyFlags::NotDirty),
-    def(dirty_cpu_test, DirtyFlags::DirtyCpu),
-    def(binary_identity, DirtyFlags::NotDirty),
-    def(term_identity, DirtyFlags::NotDirty),
-    def(pid_identity, DirtyFlags::NotDirty),
-    def(process_alive, DirtyFlags::NotDirty),
-    def(send_twice, DirtyFlags::NotDirty),
-    def(raise_runtime_error_test, DirtyFlags::NotDirty),
-    def(int8_identity, DirtyFlags::NotDirty),
-    def(uint8_identity, DirtyFlags::NotDirty),
-    def(char_identity, DirtyFlags::NotDirty),
-    def(int16_identity, DirtyFlags::NotDirty),
-    def(float_identity, DirtyFlags::NotDirty),
-    def(multimap_test, DirtyFlags::NotDirty),
-    def(unordered_multimap_test, DirtyFlags::NotDirty),
-    def(int_identity, DirtyFlags::NotDirty),
-    def(uint32_identity, DirtyFlags::NotDirty),
-    def(int64_identity, DirtyFlags::NotDirty),
-    def(uint64_identity, DirtyFlags::NotDirty),
-    def(double_identity, DirtyFlags::NotDirty),
-    def(string_identity, DirtyFlags::NotDirty),
-    def(dirty_io_test, DirtyFlags::DirtyIO),
-    def(named_nif_impl, "named_nif", DirtyFlags::NotDirty),
-    def(yield_values, DirtyFlags::NotDirty),
-    def(schedule_on_steps, DirtyFlags::NotDirty),
-    def(schedule_on_steps, "schedule_on_steps_dirty", DirtyFlags::DirtyCpu),
-    def(yield_exhaustion, DirtyFlags::NotDirty),
-    def(yield_invalid_argument, DirtyFlags::NotDirty),
-    def(yield_unknown_exception, DirtyFlags::NotDirty),
-
-    def(yield_persistent_type, DirtyFlags::NotDirty), )
+extern "C" [[gnu::visibility("default")]] ErlNifEntry* nif_init()
+{
+    return expp::nif_entry<^^my_mod, my_mod::load>("Elixir.MyMod");
+}

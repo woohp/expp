@@ -8,12 +8,18 @@
 #include "stl.hpp"
 #include "yielding.hpp"
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <erl_nif.h>
 #include <memory>
+#include <meta>
 #include <optional>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <tuple>
 #include <utility>
+#include <vector>
 
 
 namespace expp
@@ -77,6 +83,34 @@ enum class DirtyFlags
     DirtyCpu = ERL_NIF_DIRTY_JOB_CPU_BOUND,
     DirtyIO = ERL_NIF_DIRTY_JOB_IO_BOUND,
 };
+
+
+// Annotation exporting a function from nif_entry, on the given scheduler, under its own name or
+// another one:
+//
+//     [[=nif::not_dirty]] int add(int a, int b);
+//     [[=nif::dirty_cpu.named("add")]] int add_impl(int a, int b);
+//
+// Repeat it to export one function under several names.
+struct nif
+{
+    DirtyFlags dirty_flags;
+    const char* name = nullptr;
+
+    static const nif not_dirty;
+    static const nif dirty_cpu;
+    static const nif dirty_io;
+
+    // An annotation can't point into a string literal, so the name is copied into static storage.
+    consteval nif named(std::string_view new_name) const
+    {
+        return {dirty_flags, std::define_static_string(new_name)};
+    }
+};
+
+inline constexpr nif nif::not_dirty{DirtyFlags::NotDirty};
+inline constexpr nif nif::dirty_cpu{DirtyFlags::DirtyCpu};
+inline constexpr nif nif::dirty_io{DirtyFlags::DirtyIO};
 
 
 // The coroutine whose step is running on this thread, so schedule_on can reach it.
@@ -190,23 +224,10 @@ constexpr ERL_NIF_TERM wrapper(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 }
 
 
-template <auto fn, DirtyFlags dirty_flag>
-consteval ErlNifFunc def_impl(const char* name)
-{
-    ErlNifFunc entry = {
-        name,
-        function_traits<decltype(fn)>::nargs,
-        wrapper<fn, dirty_flag>,
-        static_cast<int>(dirty_flag),
-    };
-    return entry;
-}
-
-
 namespace detail
 {
-// MODULE's load callback: opens the resource types, then runs the user's callback, if any
-// (LOAD may be nullptr, NULL, or a null function pointer). An exception fails the load
+// nif_entry's load callback: opens the resource types, then runs the user's callback, if any
+// (load may be nullptr, NULL, or a null function pointer). An exception fails the load
 // instead of escaping into the VM.
 template <auto user_load>
 int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) noexcept
@@ -229,25 +250,88 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info) noexcept
     }
     return -1;
 }
+
+
+struct nif_decl
+{
+    std::meta::info fn;
+    nif annotation;
+    const char* name;
+};
+
+
+// The NIF's arity, which doesn't count a leading ErlNifEnv*, matching function_traits::nargs.
+consteval std::size_t nif_arity(std::meta::info fn)
+{
+    const auto params = std::meta::parameters_of(fn);
+    const bool takes_env = !params.empty() && std::meta::dealias(std::meta::type_of(params[0])) == ^^ErlNifEnv*;
+    return params.size() - takes_env;
+}
+
+
+consteval std::vector<nif_decl> nif_decls(std::meta::info ns)
+{
+    std::vector<nif_decl> decls;
+    for (auto member : std::meta::members_of(ns, std::meta::access_context::current()))
+    {
+        if (!std::meta::is_function(member))
+            continue;
+        for (auto annotation : std::meta::annotations_of_with_type(member, ^^nif))
+        {
+            const auto a = std::meta::extract<nif>(annotation);
+            const auto name = a.name ? a.name : std::define_static_string(std::meta::identifier_of(member));
+            for (const auto& d : decls)
+                if (std::string_view(d.name) == name && nif_arity(d.fn) == nif_arity(member))
+                    throw std::invalid_argument(std::string("NIF exported twice with the same arity: ") + name);
+            decls.push_back({member, a, name});
+        }
+    }
+    return decls;
+}
+
+
+template <std::meta::info ns>
+inline auto nif_funcs = [] {
+    static constexpr auto decls = std::define_static_array(nif_decls(ns));
+    std::array<ErlNifFunc, decls.size()> funcs;
+    std::size_t i = 0;
+    template for (constexpr nif_decl d : decls)
+    {
+        constexpr auto fn = &[:d.fn:];
+        constexpr auto dirty_flags = d.annotation.dirty_flags;
+        funcs[i++] = {d.name, nif_arity(d.fn), wrapper<fn, dirty_flags>, static_cast<int>(dirty_flags)};
+    }
+    return funcs;
+}();
 }  // namespace detail
+
+
+// Returns the entry the VM loads a NIF library through, exporting every function directly in
+// namespace ns annotated with [[=nif::...]]. Return it from the library's nif_init:
+//
+//     extern "C" [[gnu::visibility("default")]] ErlNifEntry* nif_init()
+//     {
+//         return expp::nif_entry<^^my_nifs, load, unload>("Elixir.MyMod");
+//     }
+template <std::meta::info ns, auto load = nullptr, auto unload = nullptr>
+ErlNifEntry* nif_entry(const char* module_name)
+{
+    auto& funcs = detail::nif_funcs<ns>;
+    static ErlNifEntry entry = {
+        .major = ERL_NIF_MAJOR_VERSION,
+        .minor = ERL_NIF_MINOR_VERSION,
+        .name = module_name,
+        .num_of_funcs = static_cast<int>(funcs.size()),
+        .funcs = funcs.data(),
+        .load = detail::on_load<load>,
+        .reload = nullptr,
+        .upgrade = nullptr,
+        .unload = unload,
+        .vm_variant = ERL_NIF_VM_VARIANT,
+        .options = 1,
+        .sizeof_ErlNifResourceTypeInit = sizeof(ErlNifResourceTypeInit),
+        .min_erts = ERL_NIF_MIN_ERTS_VERSION,
+    };
+    return &entry;
+}
 }  // namespace expp
-
-
-/*
-macro overloading trick:
-https://stackoverflow.com/questions/11761703/overloading-macro-on-number-of-arguments
-We want to be able to write:
-
-    def(add, DirtyFlags::NotDirty)                // named after the function
-    def(add_impl, "add", DirtyFlags::NotDirty)    // explicit name
-*/
-#define EXPP_DEF2_(fn, dirty_flag) expp::def_impl<fn, dirty_flag>(#fn)
-#define EXPP_DEF3_(fn, name, dirty_flag) expp::def_impl<fn, dirty_flag>(name)
-#define EXPP_GET_MACRO_(_1, _2, _3, NAME, ...) NAME
-// A def without a dirty flag expands to the undefined EXPP_DEF_NEEDS_A_DIRTY_FLAG, so the error names the mistake.
-#define def(...) EXPP_GET_MACRO_(__VA_ARGS__, EXPP_DEF3_, EXPP_DEF2_, EXPP_DEF_NEEDS_A_DIRTY_FLAG)(__VA_ARGS__)
-
-
-#define MODULE(NAME, LOAD, UNLOAD, ...)                                                                                \
-    ErlNifFunc expp_nif_funcs_[] = {__VA_ARGS__};                                                                      \
-    ERL_NIF_INIT(NAME, expp_nif_funcs_, expp::detail::on_load<LOAD>, nullptr, nullptr, UNLOAD)

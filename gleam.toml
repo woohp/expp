@@ -1,6 +1,6 @@
 name = "expp"
 version = "0.1.0"
-description = "Header-only C++23 library for creating Erlang, Elixir, and Gleam NIFs"
+description = "Header-only C++26 library for creating Erlang, Elixir, and Gleam NIFs"
 licences = ["MIT"]
 repository = { type = "github", user = "woohp", repo = "expp" }
 
