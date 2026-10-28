@@ -20,7 +20,7 @@ defmodule Expp.MixProject do
 
   defp deps do
     [
-      {:elixir_make, "~> 0.6", only: :dev, runtime: false}
+      {:elixir_make, "~> 0.10", only: :dev, runtime: false}
     ]
   end
 end
